@@ -8,19 +8,19 @@ WifiCredSaver *credSaver;
 char wifiNameBuff[MAX_PASSWORD_LENGHT];
 char wifiPasswordBuff[MAX_PASSWORD_LENGHT];
 
-#define UPDATE_INTERVAL_MSEC 1000
+#define UPDATE_INTERVAL_MSEC 4000
 #define CHANGE_COLOR_INTERVAL_MSEC 1000000
 #define SET_PASSWORD_TIMEOUT 1000000
+#define LED_PIN 23
 
-
-int lastMilis;
+int lastMilisForClock;
 
 
 void setup() {
   // init essential classes
   credSaver = new WifiCredSaver("W"); 
   Serial.begin(115200);
-
+  pinMode(LED_PIN, OUTPUT);
   // try to connect to wifi 10 times with the password exist on the memory
   // retrive password if exist in memory
   credSaver->retriveWifi(wifiNameBuff, wifiPasswordBuff);
@@ -37,18 +37,17 @@ void setup() {
   {
     // continue starting essentials
     initClock();
-    lastMilis = millis();
-    // assign all callback to schedular
+    lastMilisForClock = millis();
   }
 
 
   // start
 }
-static bool hasThisMilisPassed(int milis, int interval)
+static bool hasThisMilisPassed(int milis, int interval, int* lastMilis)
 {
-  if ((milis - lastMilis) >=  interval)
+  if ((milis - *lastMilis) >=  interval)
   {
-    lastMilis = milis;
+    *lastMilis = milis;
     return true;
   }
   return false;
@@ -57,15 +56,18 @@ static bool hasThisMilisPassed(int milis, int interval)
 void loop() {
   // 
   int currMillis = millis();
-  if (hasThisMilisPassed(currMillis, UPDATE_INTERVAL_MSEC))
+  if (hasThisMilisPassed(currMillis, UPDATE_INTERVAL_MSEC, &lastMilisForClock))
   {
-    updateTime();
+    updateTime(currMillis);
   }
-  if (hasThisMilisPassed(currMillis, CHANGE_COLOR_INTERVAL_MSEC))
+  if ((((currMillis + 500) / 1000) % 2) == 1)
   {
-    changeClockColor();
+    digitalWrite(LED_PIN, HIGH);
   }
-
+  else
+  {
+    digitalWrite(LED_PIN, LOW);
+  }
 
 
 }
