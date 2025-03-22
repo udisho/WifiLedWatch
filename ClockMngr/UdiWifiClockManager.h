@@ -4,69 +4,89 @@
 #include "GenericDisplay.h"
 #include "SevenSegDigit.h"
 
+#define TIME_UPDATE_INTERVAL 120000
+#define DST_CHECK_INTERVAL   240000
+
 // helper declartion
 static void printIsDST(int day, int weekDay, int hour);
 static bool hasLastSunday2AMOfOctoberYetPassed(int day, int weekDay, int hour);
 static bool hasLastThursday2AmOfMarchPassed(int day, int weekDay, int hour);
 static bool isDST();
 
-//
-
-// global varaibles
+////////// global varaibles /////////////////////////////////
 const long standardTimeOffset = 7200;  // Change this for your standard time
 const long dstOffset = 3600;           // DST offset in seconds
 long currentOffset = standardTimeOffset;
+LedDigiDispaly<4,4>* gledDisplay;
+WiFiUDP *udp = NULL;
+int last4digit = 0;
+int lastTimeUpdate = 0;
+bool isDst = false;
+NTPClient *timeClient;
 /////////////////////////////////////////////////////////////
 
-
-LedDigiDispaly<4,4>* gledDisplay;
 void initClock(){
     gledDisplay  = new  LedDigiDispaly<4,4>;
+    udp = new WiFiUDP;
+    timeClient = new NTPClient(*udp, "pool.ntp.org", 0, 60000);  // Offset set to 0, will manage it manually
+    timeClient->begin();
+    timeClient->update();
+    while (timeClient->isTimeSet() != true)
+    {
+        if (true != timeClient->update())
+        {
+            printf("update time was failed time is [%s]\n", timeClient->getFormattedTime().c_str());
+        }
+        delay(500);
+    }
+    
+    isDst = isDST();
+    currentOffset = isDST() ? (standardTimeOffset + dstOffset) : standardTimeOffset;
+    timeClient->setTimeOffset(currentOffset);
+    printf ("Is DST is [%b]\n", isDst);
+    printf("Init done!\n");
 }
 
+void updateTime(int currMilis) 
+{
+    // Update the NTP client
+    if (currMilis % TIME_UPDATE_INTERVAL != lastTimeUpdate)
+    {
+        if (true != timeClient->update())
+        {
+            printf("update time was failed time is [%s]\n", timeClient->getFormattedTime().c_str());
+        }
 
-WiFiUDP udp;
+        lastTimeUpdate = currMilis % TIME_UPDATE_INTERVAL;
+    }
+    
+    if (currMilis % DST_CHECK_INTERVAL != lastTimeUpdate)
+    {
+        // Check if DST is in effect
+        int currDst = isDST();
+        if (currDst != isDst)
+        {
+            isDst = isDST();
+            currentOffset = isDST() ? (standardTimeOffset + dstOffset) : standardTimeOffset;
+            timeClient->setTimeOffset(currentOffset);
+            printf ("Is DST Changed to [%b]\n", isDst);
+        }
+    }
 
-NTPClient timeClient(udp, "pool.ntp.org", 0, 60000);  // Offset set to 0, will manage it manually
-
-int last4digit = 0;
-
-
-
-void updateTime() {
-      // Update the NTP client
-      //Serial.println("before update");
-      timeClient.update();
-      //Serial.println("after update");
-  
-      // Check if DST is in effect
-      currentOffset = isDST() ? (standardTimeOffset + dstOffset) : standardTimeOffset;
-  
-      // Get the time adjusted for DST
-      timeClient.setTimeOffset(currentOffset);
-  
-      int time4Digit = timeClient.getHours() * 100 + timeClient.getMinutes();
-      
-      
-      if (last4digit != time4Digit) {
-          last4digit = time4Digit;
-          gledDisplay->ShowDigits(time4Digit);
-          printf("printing time [%u] n", time4Digit);
-      }
-      
-      Serial.print("Current local time: ");
-      Serial.println(timeClient.getFormattedTime());
-  
-  }
+    int time4Digit = timeClient->getHours() * 100 + timeClient->getMinutes();
+    
+    if (last4digit != time4Digit) 
+    {
+        last4digit = time4Digit;
+        gledDisplay->ShowDigits(time4Digit);
+        printf("printing time [%u] n", time4Digit);
+    }
+}
 
 void changeClockColor()
 {
     gledDisplay->ChangeColor();
 }
-
-
-
-
 
 bool connectToWifi(const char *name, const char *password, int numOfTries) {
     WiFi.begin(name, password);
@@ -89,8 +109,6 @@ bool connectToWifi(const char *name, const char *password, int numOfTries) {
       return false;
     }
   }
-
-
 
 static bool hasLastThursday2AmOfMarchPassed(int day, int weekDay, int hour) {
     if (day < 25) {
@@ -117,7 +135,7 @@ static bool hasLastThursday2AmOfMarchPassed(int day, int weekDay, int hour) {
 
 static bool isDST() {
     // Get current time
-    long epochTime = timeClient.getEpochTime();
+    long epochTime = timeClient->getEpochTime();
   
     // Convert epoch to a struct tm
     struct tm* timeinfo;
@@ -126,7 +144,7 @@ static bool isDST() {
     // Check for DST (example: March last Sunday to October last Sunday)
     int month = timeinfo->tm_mon + 1;  // tm_mon is 0-11
     int day = timeinfo->tm_mday;
-    int weekDay = timeClient.getDay();
+    int weekDay = timeClient->getDay();
     int hour = timeinfo->tm_hour;
   
     printIsDST(day, weekDay, hour);
@@ -136,7 +154,6 @@ static bool isDST() {
     }
     return false;  // Not in DST
 }
-  
   
 //0  sunday 6 saturay
 static bool hasLastSunday2AMOfOctoberYetPassed(int day, int weekDay, int hour) {
