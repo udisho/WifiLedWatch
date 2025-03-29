@@ -56,6 +56,10 @@ void updateTime(int currMilis)
         {
             printf("update time was failed time is [%s]\n", timeClient->getFormattedTime().c_str());
         }
+        else
+        {
+            printf("update time was success time is [%s]\n", timeClient->getFormattedTime().c_str());
+        }
 
         lastTimeUpdate = currMilis % TIME_UPDATE_INTERVAL;
     }
@@ -78,9 +82,10 @@ void updateTime(int currMilis)
     if (last4digit != time4Digit) 
     {
         last4digit = time4Digit;
-        gledDisplay->ShowDigits(time4Digit);
         printf("printing time [%u] n", time4Digit);
     }
+
+    gledDisplay->ShowDigits(last4digit);
 }
 
 void changeClockColor()
