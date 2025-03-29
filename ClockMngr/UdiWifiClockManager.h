@@ -26,7 +26,14 @@ NTPClient *timeClient;
 /////////////////////////////////////////////////////////////
 
 void initClock(){
+    int i = 0;
     gledDisplay  = new  LedDigiDispaly<4,4>;
+    for (i = 0; i < 10; ++i)
+    {
+        gledDisplay->ShowDigits(1111 * i);
+        delay(250);
+    }
+    
     udp = new WiFiUDP;
     timeClient = new NTPClient(*udp, "pool.ntp.org", 0, 60000);  // Offset set to 0, will manage it manually
     timeClient->begin();
@@ -43,7 +50,7 @@ void initClock(){
     isDst = isDST();
     currentOffset = isDST() ? (standardTimeOffset + dstOffset) : standardTimeOffset;
     timeClient->setTimeOffset(currentOffset);
-    printf ("Is DST is [%b]\n", isDst);
+    printf ("Is DST is [%h]\n", isDst);
     printf("Init done!\n");
 }
 
@@ -84,6 +91,8 @@ void updateTime(int currMilis)
         last4digit = time4Digit;
         printf("printing time [%u] n", time4Digit);
     }
+    
+    delay(5);
 
     gledDisplay->ShowDigits(last4digit);
 }
