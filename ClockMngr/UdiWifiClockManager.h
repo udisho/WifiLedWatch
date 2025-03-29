@@ -10,7 +10,7 @@
 // helper declartion
 static void printIsDST(int day, int weekDay, int hour);
 static bool hasLastSunday2AMOfOctoberYetPassed(int day, int weekDay, int hour);
-static bool hasLastThursday2AmOfMarchPassed(int day, int weekDay, int hour);
+static bool hasLastFriday2AmOfMarchPassed(int day, int weekDay, int hour);
 static bool isDST();
 
 ////////// global varaibles /////////////////////////////////
@@ -110,25 +110,25 @@ bool connectToWifi(const char *name, const char *password, int numOfTries) {
     }
   }
 
-static bool hasLastThursday2AmOfMarchPassed(int day, int weekDay, int hour) {
+static bool hasLastFriday2AmOfMarchPassed(int day, int weekDay, int hour) {
     if (day < 25) {
         return false;
     }
     switch (weekDay) {
-        case 0:  // Sunday
-        return day > 27;
-        case 1:  // Monday
-        return day > 28;
-        case 2:  // Tuesday
-        return day > 29;
-        case 3:  // Wednesday
-        return day > 30;
-        case 4:              // Thursday
-        return hour >= 2;  // If it's Thursday, check if it's 2 AM or later
-        case 5:              // Friday
-        return day > 25;
-        case 6:  // Saturday
+        case 0:   // Sunday
         return day > 26;
+        case 1:   // Monday
+        return day > 27;
+        case 2:   // Tuesday
+        return day > 28;
+        case 3:   // Wednesday
+        return day > 29;
+        case 4:   // Thursday           
+        return day > 30; 
+        case 5:   // Friday If it's Friday, check if it's 2 AM or later
+        return hour >= 2;
+        case 6:   // Saturday
+        return day > 25;
     }
     return false;  // Default case, shouldn't reach here
 }
@@ -147,9 +147,9 @@ static bool isDST() {
     int weekDay = timeClient->getDay();
     int hour = timeinfo->tm_hour;
   
-    printIsDST(day, weekDay, hour);
+    //printIsDST(day, weekDay, hour);
   
-    if ((month > 3 && month < 10) || (month == 3 && hasLastThursday2AmOfMarchPassed(day, weekDay, hour)) || (month == 10 && hasLastSunday2AMOfOctoberYetPassed(day, weekDay, hour))) {
+    if ((month > 3 && month < 10) || (month == 3 && hasLastFriday2AmOfMarchPassed(day, weekDay, hour)) || (month == 10 && hasLastSunday2AMOfOctoberYetPassed(day, weekDay, hour))) {
       return true;  // DST is in effect
     }
     return false;  // Not in DST
