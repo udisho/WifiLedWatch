@@ -23,7 +23,9 @@ void setup() {
   pinMode(LED_PIN, OUTPUT);
   // try to connect to wifi 10 times with the password exist on the memory
   // retrive password if exist in memory
+  //credSaver->saveWifiCred("GHHH", "gggg");
   credSaver->retriveWifi(wifiNameBuff, wifiPasswordBuff);
+
   // if (not connected) than open cred saver and reboot
   if (false == connectToWifi(wifiNameBuff, wifiPasswordBuff, 10))
   {
@@ -32,6 +34,7 @@ void setup() {
     WifiCredObtainer* obtainer = new WifiCredObtainer("The Amazing Watch");
     obtainer->run(wifiName,password, SET_PASSWORD_TIMEOUT);
     credSaver->saveWifiCred(wifiName.c_str(), password.c_str());
+    ESP.restart();
   }
   else
   {
