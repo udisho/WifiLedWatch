@@ -24,16 +24,20 @@ int lastTimeUpdate = 0;
 bool isDst = false;
 NTPClient *timeClient;
 /////////////////////////////////////////////////////////////
-
-void initClock(){
+void initLedDisplay(void)
+{
     int i = 0;
-    gledDisplay  = new  LedDigiDispaly<4,4>;
+    gledDisplay = new LedDigiDispaly<4,4>;
     for (i = 0; i < 10; ++i)
     {
         gledDisplay->ShowDigits(1111 * i);
         delay(250);
     }
+}
+
+void initClock(){
     
+    initLedDisplay();
     udp = new WiFiUDP;
     timeClient = new NTPClient(*udp, "pool.ntp.org", 0, 60000);  // Offset set to 0, will manage it manually
     timeClient->begin();

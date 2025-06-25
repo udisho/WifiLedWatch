@@ -30,13 +30,13 @@
     21 22 23 24 
 */
 
-extern const unsigned int arrOfOneDigit[10][28];
+extern const unsigned int arrOfOneDigit[13][28];
 
 extern const CRGB colors[];
 
 
 template<int DATA_PIN, int NUM_OF_DIGITS>
-class LedDigiDispaly /*: public GenericDisplay */{
+class LedDigiDispaly : public GenericDisplay {
 public:
 
   LedDigiDispaly();
@@ -45,6 +45,7 @@ public:
   void ShowDigits(int numToShow) /*override*/;
   void ChangeColor()/*override*/ {}
   void RunTestLeds(void)/*override*/{}
+  void ShowCONN(void);
   
 private:
   const int m_dataPin;
@@ -94,6 +95,19 @@ void LedDigiDispaly<DATA_PIN, NUM_OF_DIGITS>::ShowDigits(int numToShow)
     for (; i > 0; --i) {
       showOneDigit((i - 1) * NUM_LEDS_IN_DIGIT, numToShow % 10);
       numToShow /= 10;
+    }
+    FastLED.show();
+}
+
+template<int DATA_PIN, int NUM_OF_DIGITS>    
+void LedDigiDispaly<DATA_PIN, NUM_OF_DIGITS>::ShowCONN(void) 
+{
+    printf("printing ShowCONN");
+    static const int connWord[] = {11, 12, 13, 13};
+    int i = NUM_OF_DIGITS;
+    clearLeds();
+    for (; i > 0; --i) {
+      showOneDigit((i - 1) * NUM_LEDS_IN_DIGIT, connWord[i]);
     }
     FastLED.show();
 }
