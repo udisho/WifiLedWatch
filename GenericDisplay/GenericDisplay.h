@@ -6,8 +6,9 @@ class GenericDisplay
 public:
     virtual void RunTestLeds(void);
     virtual void ShowDigits(int numToShow);
-    virtual void ChangeColor(void);
     virtual void ShowCONN(void);
+    virtual void ChangeBrightness(int brightness);
+    virtual void ChangeColor(CRGB color);
 };
 
 #endif // _GENERIC_DISPLAY_

@@ -4,6 +4,8 @@
 #include <FastLED.h>
 #include <DS3231.h>
 #include "GenericDisplay.h"
+#include "Common.h"
+#include "debug.h"
 
 #define NUM_LEDS_IN_DIGIT 29
 #define DEBUG_MODE true  // Set to true or false to enable/disable debug prints
@@ -32,8 +34,13 @@
 
 extern const unsigned int arrOfOneDigit[13][28];
 
-extern const CRGB colors[];
 
+static inline int8_t getBrightnessValueByIndex(int8_t brightnessIndex)
+{
+    // Ensure the input is within the valid range
+    brightnessIndex = constrain(brightnessIndex, 1, 100);
+    return map(brightnessIndex, 1, 100, 1, 255);
+}
 
 template<int DATA_PIN, int NUM_OF_DIGITS>
 class LedDigiDispaly : public GenericDisplay {
@@ -43,7 +50,17 @@ public:
   ~LedDigiDispaly();
 
   void ShowDigits(int numToShow) /*override*/;
-  void ChangeColor()/*override*/ {}
+  void ChangeColor(CRGB color){
+      m_currentColor = color;
+      ShowDigits(m_currNum);
+      LOG_INFO("Color changed to [%s]", getLedColorOptionNameByColor(color));
+}
+void ChangeBrightness(int brightness)
+{
+   // m_currBrightness = brightness;
+    FastLED.setBrightness(getBrightnessValueByIndex(brightness));
+    LOG_INFO("Brightness changed to [%d]", brightness);
+  }
   void RunTestLeds(void)/*override*/{}
   void ShowCONN(void);
   
@@ -51,10 +68,10 @@ private:
   const int m_dataPin;
   const int m_numOfLeds;
   CRGB m_leds[NUM_OF_LEDS(NUM_OF_DIGITS)];
-  int m_currentColorIndex;
   CRGB m_currentColor;
+  //int m_currBrightness;
   void clearLeds();
-  //void showOneDigit(int startingLed);
+  int m_currNum;
 
   inline void showOneDigit(int startingLed, int number) {
     for (int i = 0; i < 28; i++) {
@@ -72,11 +89,11 @@ private:
 
 template<int DATA_PIN, int NUM_OF_DIGITS>  
 LedDigiDispaly<DATA_PIN, NUM_OF_DIGITS>::LedDigiDispaly() :
-/*GenericDisplay(),*/ m_dataPin(DATA_PIN), m_numOfLeds(NUM_OF_LEDS(NUM_OF_DIGITS)), m_currentColor(CRGB::LightGreen), m_currentColorIndex(0) 
+/*GenericDisplay(),*/ m_dataPin(DATA_PIN), m_numOfLeds(NUM_OF_LEDS(NUM_OF_DIGITS)), m_currentColor(gSelectedColor)/*, m_currBrightness(gSelectedBrightness)*/
 {
    // m_leds = new CRGB[m_numOfLeds];
     FastLED.addLeds<NEOPIXEL, DATA_PIN>(m_leds, NUM_OF_LEDS(NUM_LEDS_IN_DIGIT));
-    FastLED.setBrightness(MAX_BRITHNESS);
+    FastLED.setBrightness(getBrightnessValueByIndex(gSelectedBrightness));
 }
 
 template<int DATA_PIN, int NUM_OF_DIGITS>  
@@ -89,7 +106,7 @@ LedDigiDispaly<DATA_PIN, NUM_OF_DIGITS>::~LedDigiDispaly()
 template<int DATA_PIN, int NUM_OF_DIGITS>    
 void LedDigiDispaly<DATA_PIN, NUM_OF_DIGITS>::ShowDigits(int numToShow) 
 {
-    printf("printing digit: [%u]\n",numToShow );
+    m_currNum = numToShow;
      int i = NUM_OF_DIGITS;
      clearLeds();
     for (; i > 0; --i) {
@@ -102,12 +119,12 @@ void LedDigiDispaly<DATA_PIN, NUM_OF_DIGITS>::ShowDigits(int numToShow)
 template<int DATA_PIN, int NUM_OF_DIGITS>    
 void LedDigiDispaly<DATA_PIN, NUM_OF_DIGITS>::ShowCONN(void) 
 {
-    printf("printing ShowCONN");
-    static const int connWord[] = {11, 12, 13, 13};
+    LOG_DEBUG("printing ShowCONN");
+    static const int connWord[NUM_OF_DIGITS] = {11, 12, 13, 13};
     int i = NUM_OF_DIGITS;
     clearLeds();
     for (; i > 0; --i) {
-      showOneDigit((i - 1) * NUM_LEDS_IN_DIGIT, connWord[i]);
+      showOneDigit((i - 1) * NUM_LEDS_IN_DIGIT, connWord[i - 1]);
     }
     FastLED.show();
 }
@@ -121,5 +138,8 @@ inline void LedDigiDispaly<DATA_PIN, NUM_OF_DIGITS>::clearLeds() {
   }
 
 //} // namespace LedDigiDispaly 
+
+
+
 
 #endif  // End of header guard

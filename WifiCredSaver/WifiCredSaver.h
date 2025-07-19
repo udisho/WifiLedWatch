@@ -3,10 +3,11 @@
 #include "esp_system.h"
 #include "nvs_flash.h"
 #include "nvs.h"
+#include "Common.h"
 // #include "/home/udi/.arduino15/packages/esp32/hardware/esp32/2.0.17/tools/sdk/esp32/include/nvs_flash/include/nvs_flash.h"
 // #include "/home/udi/.arduino15/packages/esp32/hardware/esp32/2.0.17/tools/sdk/esp32/include/nvs_flash/include/nvs.h"
 //#include <iostream>
-#define MAX_PASSWORD_LENGHT 60
+
 
 
 class WifiCredSaver

@@ -1,4 +1,5 @@
 #include <WifiCredObtainer.h>
+#include "debug.h"
 
 #define MAX_CLIENTS 4	// ESP32 supports up to 10 but I have not tested it yet
 #define WIFI_CHANNEL 6	// 2.4ghz channel 6 https://en.wikipedia.org/wiki/List_of_WLAN_channels#2.4_GHz_(802.11b/g/n/ax)
@@ -33,7 +34,7 @@ const char index_html[] PROGMEM = R"=====(
           background: rgba(255,255,255,0.85);
           border-radius: 10px;
           padding: 30px;
-          box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+          box-shadow: 0 4px 15px rgba(116, 13, 13, 0.15);
           margin: auto;
           margin-top: 50px;
         }
@@ -139,37 +140,9 @@ const char index_html[] PROGMEM = R"=====(
   </html>
   )=====";
 
-void startSoftAccessPoint(const char *ssid, const char *password, const IPAddress &localIP, const IPAddress &gatewayIP) 
-{
-    // Define the maximum number of clients that can connect to the server
-    #define MAX_CLIENTS 4
-    // Define the WiFi channel to be used (channel 6 in this case)
-    #define WIFI_CHANNEL 6
-    
-        // Set the WiFi mode to access point and station
-        WiFi.mode(WIFI_MODE_AP);
-    
-        // Define the subnet mask for the WiFi network
-        const IPAddress subnetMask(255, 255, 255, 0);
-    
-        // Configure the soft access point with a specific IP and subnet mask
-        WiFi.softAPConfig(localIP, gatewayIP, subnetMask);
-    
-        // Start the soft access point with the given ssid, password, channel, max number of clients
-        WiFi.softAP(ssid, password, WIFI_CHANNEL, 0, MAX_CLIENTS);
-    
-        // Disable AMPDU RX on the ESP32 WiFi to fix a bug on Android
-        esp_wifi_stop();
-        esp_wifi_deinit();
-        wifi_init_config_t my_config = WIFI_INIT_CONFIG_DEFAULT();
-        my_config.ampdu_rx_enable = false;
-        esp_wifi_init(&my_config);
-        esp_wifi_start();
-        vTaskDelay(100 / portTICK_PERIOD_MS);  // Add a small delay
-}
 
 
-void setUpWebserver(AsyncWebServer &server, const IPAddress &localIP) 
+void WifiCredObtainer::setUpWebserver(AsyncWebServer &server, const IPAddress &localIP) 
 {
 	//======================== Webserver ========================
 	// WARNING IOS (and maybe macos) WILL NOT POP UP IF IT CONTAINS THE WORD "Success" https://www.esp8266.com/viewtopic.php?f=34&t=4398
@@ -199,7 +172,7 @@ void setUpWebserver(AsyncWebServer &server, const IPAddress &localIP)
     AsyncWebServerResponse *response = request->beginResponse(200, "text/html", index_html);
     response->addHeader("Cache-Control", "public,max-age=31536000");
     request->send(response);
-    Serial.println("Served Basic HTML Page");
+    LOG_INFO("Served Basic HTML Page");
     });
 
     // Form submission handler
@@ -208,10 +181,7 @@ void setUpWebserver(AsyncWebServer &server, const IPAddress &localIP)
         if (request->hasParam("ssid") && request->hasParam("password")) {
             wifiSSID = request->getParam("ssid")->value();
             wifiPassword = request->getParam("password")->value();
-
-            Serial.println("Received credentials:");
-            Serial.println("SSID: " + wifiSSID);
-            Serial.println("Password: " + wifiPassword);
+            LOG_INFO("Received credentials: SSID [%s] Password: [%s]", wifiSSID.c_str(), wifiPassword.c_str());
 
             request->send(200, "text/html", "<html><body style='font-family: Arial, sans-serif; background-color: #f0f8ff; color: #333;'>"
                         "<h1 style='color: #1e90ff; text-align: center; font-size: 48px;'>Wi-Fi Credentials Received</h1>"
@@ -232,53 +202,37 @@ void setUpWebserver(AsyncWebServer &server, const IPAddress &localIP)
 	server.onNotFound([&isPasswordProvided](AsyncWebServerRequest *request) 
     {
 		request->redirect(localIPURL);
-		Serial.print("onnotfound ");
-		Serial.print(request->host());	// This gives some insight into whatever was being requested on the serial monitor
-		Serial.print(" ");
-		Serial.print(request->url());
-		Serial.print(" sent redirect to " + localIPURL + "\n");
+		LOG_INFO("onnotfound [%s] [%s] sent redirect to ", request->host().c_str(), request->url().c_str(), localIPURL.c_str()); // This gives some insight into whatever was being requested on the serial monitor
 	});
 }
 
 //===========================================================================================================
 
-WifiCredObtainer::WifiCredObtainer(const char* configWifiName) : server(80)
+WifiCredObtainer::WifiCredObtainer(const char* configWifiName) : CaptivePortal(configWifiName, WifiCredObtainer::setUpWebserver)
 {
-    Serial.print("Setting AP (Access Point)…");
-    // Remove the password parameter, if you want the AP (Access Point) to be open
-    const IPAddress localIP(4, 3, 2, 1);  // Set the static IP
-    const IPAddress gatewayIP(4, 3, 2, 1);    // Set the gatewayIP
-    const IPAddress subnetMask(255, 255, 255, 0);  // Set the subnetMask mask
-    
-    this->dnsServer.setTTL(3600);
-    this->dnsServer.start(53, "*", localIP);
-        
-    Serial.println("\n\nCaptive Test, V0.5.0 compiled " __DATE__ " " __TIME__ " by CD_FER");  //__DATE__ is provided by the platformio ide
-    Serial.printf("%s-%d\n\r", ESP.getChipModel(), ESP.getChipRevision());
-    
-    startSoftAccessPoint(configWifiName, NULL, localIP, gatewayIP);
-    setUpWebserver(server, localIP);
-    server.begin();
+    //  setUpWebserver(this->server, localIP);
+    //  server.begin();
 
-    Serial.print("\n");
-    Serial.print("Startup Time:");	// should be somewhere between 270-350 for Generic ESP32 (D0WDQ6 chip, can have a higher startup time on first boot)
-    Serial.println(millis());
-    Serial.print("\n");
+    //  Serial.print("\n");
+    //  Serial.print("Startup Time:");	// should be somewhere between 270-350 for Generic ESP32 (D0WDQ6 chip, can have a higher startup time on first boot)
+    //  Serial.println(millis());
+    //  Serial.print("\n");
 }
 
 void WifiCredObtainer::run(String &wifiName, String &password, int timeout) 
 {
+    CaptivePortal::run(wifiName.c_str());
     long unsigned int endMilis = millis() + timeout;
     while (endMilis > millis() && !isPasswordProvided)
     {
-        dnsServer.processNextRequest();	 // I call this atleast every 10ms in my other projects (can be higher but I haven't tested it for stability)
+        this->processNextRequest();	 
 	    #define DNS_INTERVAL 30
-        delay(DNS_INTERVAL);
+        vTaskDelay(DNS_INTERVAL / portTICK_PERIOD_MS);
         if (isPasswordProvided)
         {
             wifiName = wifiSSID;
             password = wifiPassword;
-            delay(5000);
+            vTaskDelay(5000 / portTICK_PERIOD_MS);
             return;
         }
 
