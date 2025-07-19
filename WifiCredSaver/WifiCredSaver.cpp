@@ -1,5 +1,6 @@
 #include "WifiCredSaver.h"
 #include "WString.h"
+#include "debug.h"
 
 WifiCredSaver::WifiCredSaver(const char* key) : m_keyName(key) 
 {
@@ -29,9 +30,10 @@ bool WifiCredSaver::saveWifiCred(const char* name, const char* password)
 
     if (err != ESP_OK) 
     {
-        printf(("Error (%s) opening NVS handle! [%s] 0 \n",
-                esp_err_to_name(err),
-               wifiKeyName.c_str()));
+        LOG_ERROR("(%s) opening NVS handle! [%s] 0",
+            esp_err_to_name(err),
+            wifiKeyName.c_str());
+        
         return false;
     }
     err = nvs_open(wifiKeyPassword.c_str(),
@@ -40,7 +42,7 @@ bool WifiCredSaver::saveWifiCred(const char* name, const char* password)
 
     if (err != ESP_OK) 
     {
-        printf("Error (%s) opening NVS handle! [%s] 0 \n",
+        LOG_ERROR("(%s) opening NVS handle! [%s] 0",
                esp_err_to_name(err),
                wifiKeyPassword.c_str());
         return false;
@@ -52,7 +54,7 @@ bool WifiCredSaver::saveWifiCred(const char* name, const char* password)
                    name);
         if (ESP_OK != err)
         {
-            printf("Error could not set the [%s] [%s]\n",  wifiKeyName.c_str(), esp_err_to_name(err));
+            LOG_ERROR("Error could not set the [%s] [%s]",  wifiKeyName.c_str(), esp_err_to_name(err));
             return false;
         }
 
@@ -61,14 +63,14 @@ bool WifiCredSaver::saveWifiCred(const char* name, const char* password)
                           password);
         if (ESP_OK != err)
         {
-            printf("Error could not set the wifi password [%s]\n", esp_err_to_name(err));
+            LOG_ERROR("Could not set the wifi password [%s]", esp_err_to_name(err));
             return false;
         }
 
         err = nvs_commit(myNameHandle);
         err |= nvs_commit(myPasswordHandle);
 
-        printf((err != ESP_OK) ? "Failed!" : "Done" " Setting wifi password, key name [%s]\n", this->m_keyName);
+        LOG_INFO("%s Setting wifi password, key name [%s]", ((err != ESP_OK) ? "Failed!" : "Done"), this->m_keyName);
 
         nvs_close(myNameHandle);
         nvs_close(myPasswordHandle);
@@ -93,9 +95,7 @@ bool WifiCredSaver::retriveWifi(char nameBufffer[MAX_PASSWORD_LENGHT], char pass
 
     if (err != ESP_OK) 
     {
-        printf("Error (%s) opening NVS handle! [%s] 0 \n",
-               esp_err_to_name(err),
-              WifiNameKeyName.c_str());
+        LOG_ERROR("(%s) opening NVS handle! [%s] 0 \n", esp_err_to_name(err), WifiNameKeyName.c_str());
         return false;
     }
     err = nvs_open(passwordKeyName.c_str(),
@@ -104,9 +104,7 @@ bool WifiCredSaver::retriveWifi(char nameBufffer[MAX_PASSWORD_LENGHT], char pass
 
     if (err != ESP_OK) 
     {
-        printf("Error (%s) opening NVS handle! [%s] 0 \n",
-               esp_err_to_name(err),
-              passwordKeyName.c_str());
+        LOG_ERROR("(%s) opening NVS handle! [%s] 0", esp_err_to_name(err), passwordKeyName.c_str());
         return false;
     }
 else 
@@ -121,7 +119,7 @@ else
                    &nameLenght);
         if (ESP_OK != err)
         {
-            printf("Error could not Get the [%s] [%s]\n",  WifiNameKeyName.c_str(), esp_err_to_name(err));
+            LOG_ERROR("Could not Get the [%s] [%s]",  WifiNameKeyName.c_str(), esp_err_to_name(err));
             return false;
         }
         
@@ -131,12 +129,12 @@ else
                           &passwordLenght);
         if (ESP_OK != err)
         {
-            printf("Error could not set the wifi password");
+            LOG_INFO("Error could not set the wifi password");
             return false;
         }
-    
-        printf((err != ESP_OK) ? "Failed!" : "Done"" Getting password for key name [%s]\n", this->m_keyName);
 
+        LOG_INFO("%s Getting password for key name [%s]", ((err != ESP_OK) ? "Failed!" : "Done"), this->m_keyName);
+    
         nvs_close(myNameHandle);
         nvs_close(myPasswordHandle);
         
