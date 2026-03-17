@@ -42,14 +42,14 @@ void ConfigStore::load(WatchSettings& s) {
     s.tabata.restColorIdx = prefs.getUChar("tbRC", 0);
 
     s.sunriseColorEnabled = prefs.getBool("sunClr", false);
-    s.messageEnabled      = prefs.getBool("msgEn", false);
-    s.messageIntervalMin  = prefs.getUShort("msgInt", 60);
-    prefs.getString("msgTxt", s.customMessage, sizeof(s.customMessage));
     s.showDateEnabled     = prefs.getBool("dateEn", false);
     s.showDateIntervalSec = prefs.getUChar("dateInt", 30);
-    s.buzzerEnabled       = prefs.getBool("buzzEn", false);
+    s.colonLedsEnabled  = prefs.getBool("colonEn", true);
+    s.buzzerLevel       = prefs.getUChar("buzzLv", 2);
+    s.clockworkBuzzer   = prefs.getBool("cwBuzz", false);
     s.gymModeEnabled      = prefs.getBool("gymEn", false);
     s.pomodoroIntervals   = prefs.getUChar("pomInt", POMODORO_INTERVALS);
+    s.colorMode           = prefs.getUChar("clrMode", 0);
     s.birthdayCount       = prefs.getUChar("bdCnt", 0);
 
     prefs.end();
@@ -90,14 +90,14 @@ void ConfigStore::save(const WatchSettings& s) {
     prefs.putUChar("tbRC", s.tabata.restColorIdx);
 
     prefs.putBool("sunClr", s.sunriseColorEnabled);
-    prefs.putBool("msgEn", s.messageEnabled);
-    prefs.putUShort("msgInt", s.messageIntervalMin);
-    prefs.putString("msgTxt", s.customMessage);
     prefs.putBool("dateEn", s.showDateEnabled);
     prefs.putUChar("dateInt", s.showDateIntervalSec);
-    prefs.putBool("buzzEn", s.buzzerEnabled);
+    prefs.putBool("colonEn", s.colonLedsEnabled);
+    prefs.putUChar("buzzLv", s.buzzerLevel);
+    prefs.putBool("cwBuzz", s.clockworkBuzzer);
     prefs.putBool("gymEn", s.gymModeEnabled);
     prefs.putUChar("pomInt", s.pomodoroIntervals);
+    prefs.putUChar("clrMode", s.colorMode);
     prefs.putUChar("bdCnt", s.birthdayCount);
 
     prefs.end();
@@ -175,14 +175,6 @@ void ConfigStore::saveSunriseColor(bool enabled) {
     prefs.end();
 }
 
-void ConfigStore::saveCustomMessage(const char* msg, uint16_t intervalMin, bool enabled) {
-    Preferences prefs; prefs.begin(PREFS_NS, false);
-    prefs.putString("msgTxt", msg);
-    prefs.putUShort("msgInt", intervalMin);
-    prefs.putBool("msgEn", enabled);
-    prefs.end();
-}
-
 void ConfigStore::saveDateDisplay(bool enabled, uint8_t intervalSec) {
     Preferences prefs; prefs.begin(PREFS_NS, false);
     prefs.putBool("dateEn", enabled);
@@ -190,9 +182,9 @@ void ConfigStore::saveDateDisplay(bool enabled, uint8_t intervalSec) {
     prefs.end();
 }
 
-void ConfigStore::saveBuzzer(bool enabled) {
+void ConfigStore::saveBuzzer(int level) {
     Preferences prefs; prefs.begin(PREFS_NS, false);
-    prefs.putBool("buzzEn", enabled);
+    prefs.putUChar("buzzLv", level);
     prefs.end();
 }
 

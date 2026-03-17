@@ -20,14 +20,17 @@ static const char WEB_HTML[] PROGMEM = R"=====(
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<title>The Amazing Watch</title>
+<title>NeoTick</title>
 <style>
 :root{--bg:#0f0f23;--card:#1a1a2e;--accent:#44d9e1;--accent2:#6e7dff;--text:#e0e0e0;--text2:#999;--btn:#2d2d44;--success:#4CAF50;--danger:#e74c3c;--work:#4CAF50;--rest:#e74c3c}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
-.hdr{background:linear-gradient(135deg,var(--accent2),var(--accent));padding:20px 16px;text-align:center}
-.hdr h1{font-size:24px;color:#fff;font-weight:800;letter-spacing:.5px}
-.hdr .sub{font-size:12px;color:rgba(255,255,255,.7);margin-top:2px}
+.hdr{background:#0a0a1a;padding:22px 16px;text-align:center;position:relative;overflow:hidden;border-bottom:1px solid #1a1a2e}
+.hdr::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:conic-gradient(from 0deg,transparent 0%,rgba(68,217,225,.06) 25%,transparent 50%,rgba(110,125,255,.06) 75%,transparent 100%);animation:headerShine 12s linear infinite}
+@keyframes headerShine{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+.hdr h1{font-size:28px;color:#fff;font-weight:900;letter-spacing:3px;position:relative;text-transform:uppercase}
+.hdr h1 span{color:var(--accent);font-weight:400}
+.hdr .sub{font-size:11px;color:rgba(255,255,255,.4);margin-top:4px;position:relative;letter-spacing:1px}
 .tabs{display:flex;background:var(--card);position:sticky;top:0;z-index:10;overflow-x:auto;-webkit-overflow-scrolling:touch}
 .tab{flex:1 0 auto;padding:14px 10px;text-align:center;cursor:pointer;font-size:12px;font-weight:600;color:var(--text2);border-bottom:3px solid transparent;transition:.2s;white-space:nowrap}
 .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
@@ -109,12 +112,18 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
 @keyframes segAnim{0%{background:var(--accent)}50%{background:#6e7dff}100%{background:#ff6e7d}}
 .seg-bar.paused .seg-wrap,.seg-bar.paused .big-time{animation:pausePulse 2s ease-in-out infinite}
 @keyframes pausePulse{0%,100%{opacity:1}50%{opacity:.15}}
+.sec-hdr{cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:var(--card);border-radius:14px;margin-bottom:2px}
+.sec-hdr h3{margin:0;font-size:13px;color:var(--accent);text-transform:uppercase;letter-spacing:1.5px;font-weight:700}
+.sec-hdr .arr{color:var(--text2);font-size:14px;transition:transform .2s}
+.sec-hdr.open .arr{transform:rotate(180deg)}
+.sec-body{display:none;background:var(--card);border-radius:0 0 14px 14px;padding:0 18px 18px;margin-top:-12px;margin-bottom:14px}
+.sec-body.show{display:block}
 </style>
 </head>
 <body>
 <div class="hdr">
-  <h1>The Amazing Watch</h1>
-  <div class="sub">By Udi & Noam Shorer</div>
+  <h1>NEO<span>TICK</span></h1>
+  <div class="sub"><a href="https://www.instagram.com/ai.garage_" target="_blank" style="color:rgba(255,255,255,.4);text-decoration:none;letter-spacing:1px">by The AI Garage</a></div>
 </div>
 <div class="tabs">
   <div class="tab active" data-tab="clock">Clock</div>
@@ -140,23 +149,6 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
     </div>
   </div>
   <div class="card">
-    <h3>Color</h3>
-    <div class="colors" id="colorGrid"></div>
-    <div class="custom-color">
-      <span style="font-size:13px;color:var(--text2)">Custom:</span>
-      <input type="color" id="customColor" value="#00ff00">
-      <button class="btn btn-secondary" style="padding:10px 16px;font-size:13px" onclick="applyCustomColor()">Apply</button>
-    </div>
-  </div>
-  <div class="card">
-    <h3>Brightness</h3>
-    <div class="slider-row">
-      <label>Level</label>
-      <input type="range" id="brightSlider" min="5" max="200" value="100">
-      <span class="val" id="brightVal">100</span>
-    </div>
-  </div>
-  <div class="card">
     <h3>Transition Animation</h3>
     <div class="toggle-row">
       <span id="animLabel">Fade on digit change</span>
@@ -164,9 +156,7 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
     </div>
   </div>
   <div class="card" style="text-align:center">
-    <button class="btn btn-primary" onclick="send({cmd:'animate'})" style="margin-right:10px">LED Test</button>
-    <button class="btn" id="crazyToggle" onclick="send({cmd:'crazy'})">Crazy Mode</button>
-    <button class="btn" id="rainbowToggle" onclick="send({cmd:'rainbow'})" style="margin-top:10px">Rainbow</button>
+    <button class="btn btn-primary" onclick="send({cmd:'animate'})">LED Test</button>
   </div>
 </div>
 
@@ -212,29 +202,27 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
   </div>
   <div class="card" id="tabCfg">
     <h3>Tabata Settings</h3>
-    <div style="font-size:13px;color:var(--text2);margin-bottom:4px;text-align:center">Work</div>
-    <div class="wheel"><div><div class="wc-wrap"><div class="wc" id="tabWorkMinW"></div></div><div class="wc-label">min</div></div><div class="wheel-sep">:</div><div><div class="wc-wrap"><div class="wc" id="tabWorkSecW"></div></div><div class="wc-label">sec</div></div></div>
-    <div style="font-size:13px;color:var(--text2);margin-bottom:4px;text-align:center">Rest</div>
-    <div class="wheel"><div><div class="wc-wrap"><div class="wc" id="tabRestMinW"></div></div><div class="wc-label">min</div></div><div class="wheel-sep">:</div><div><div class="wc-wrap"><div class="wc" id="tabRestSecW"></div></div><div class="wc-label">sec</div></div></div>
-    <div class="wheel"><div><div class="wc-wrap"><div class="wc" id="tabIntW"></div></div><div class="wc-label">intervals</div></div></div>
-    <div style="margin-top:12px">
-      <span style="font-size:13px;color:var(--text2)">Work color:</span>
-      <select id="tabWC" style="width:auto;display:inline-block;margin-left:8px"></select>
+    <div style="display:flex;gap:12px;justify-content:center;align-items:flex-end;flex-wrap:wrap">
+      <div style="text-align:center"><div style="font-size:11px;color:var(--work);margin-bottom:2px">Work</div><div style="display:flex;gap:2px;align-items:center"><div class="wc-wrap"><div class="wc" id="tabWorkMinW" style="width:44px;height:100px"></div></div><span style="font-size:11px;color:var(--text2)">:</span><div class="wc-wrap"><div class="wc" id="tabWorkSecW" style="width:44px;height:100px"></div></div></div><div style="font-size:10px;color:var(--text2)">min : sec</div></div>
+      <div style="text-align:center"><div style="font-size:11px;color:var(--rest);margin-bottom:2px">Rest</div><div style="display:flex;gap:2px;align-items:center"><div class="wc-wrap"><div class="wc" id="tabRestMinW" style="width:44px;height:100px"></div></div><span style="font-size:11px;color:var(--text2)">:</span><div class="wc-wrap"><div class="wc" id="tabRestSecW" style="width:44px;height:100px"></div></div></div><div style="font-size:10px;color:var(--text2)">min : sec</div></div>
+      <div style="text-align:center"><div style="font-size:11px;color:var(--accent);margin-bottom:2px">Rounds</div><div class="wc-wrap"><div class="wc" id="tabIntW" style="width:44px;height:100px"></div></div></div>
     </div>
-    <div style="margin-top:8px">
-      <span style="font-size:13px;color:var(--text2)">Rest color:</span>
-      <select id="tabRC" style="width:auto;display:inline-block;margin-left:8px"></select>
+    <div style="display:flex;gap:8px;margin-top:12px;justify-content:center;flex-wrap:wrap">
+      <span style="font-size:12px;color:var(--text2)">Work:</span><select id="tabWC" style="width:auto;padding:4px 8px;font-size:12px;border-radius:6px;border:1px solid #333;background:var(--btn);color:var(--text)"></select>
+      <span style="font-size:12px;color:var(--text2)">Rest:</span><select id="tabRC" style="width:auto;padding:4px 8px;font-size:12px;border-radius:6px;border:1px solid #333;background:var(--btn);color:var(--text)"></select>
     </div>
-    <div class="btn-row" style="margin-top:16px">
-      <button class="btn btn-primary" onclick="saveTabata()">Save Settings</button>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn btn-primary" style="font-size:13px;padding:10px 20px" onclick="saveTabata()">Save</button>
     </div>
-    <div style="margin-top:16px;border-top:1px solid #333;padding-top:14px">
-      <span style="font-size:13px;color:var(--text2)">Presets:</span>
-      <select id="tabPresetSel" style="width:auto;display:inline-block;margin-left:8px"></select>
-      <button class="btn btn-secondary" style="padding:6px 12px;font-size:12px;margin-left:6px" onclick="loadTabPreset()">Load</button>
-      <div style="margin-top:8px;display:flex;gap:6px;align-items:center">
-        <input type="text" id="tabPresetName" maxlength="15" placeholder="Preset name" style="flex:1;padding:8px;border-radius:8px;border:1px solid #333;background:var(--btn);color:var(--text);font-size:13px">
-        <button class="btn btn-primary" style="padding:6px 12px;font-size:12px" onclick="saveTabPreset()">Save as Preset</button>
+    <div style="margin-top:12px;border-top:1px solid #222;padding-top:10px">
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <select id="tabPresetSel" style="flex:1;padding:6px;font-size:12px;border-radius:6px;border:1px solid #333;background:var(--btn);color:var(--text)"></select>
+        <button class="btn btn-secondary" style="padding:6px 10px;font-size:11px" onclick="loadTabPreset()">Load</button>
+        <button class="btn btn-danger" style="padding:6px 10px;font-size:11px" onclick="delTabPreset()">Del</button>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
+        <input type="text" id="tabPresetName" maxlength="15" placeholder="Name" style="flex:1;padding:6px;border-radius:6px;border:1px solid #333;background:var(--btn);color:var(--text);font-size:12px">
+        <button class="btn btn-primary" style="padding:6px 10px;font-size:11px" onclick="saveTabPreset()">Save Preset</button>
       </div>
     </div>
   </div>
@@ -259,113 +247,109 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
 </div>
 
 <div class="panel" id="settings">
-  <div class="card">
-    <h3>Timezone</h3>
+  <div class="sec-hdr" onclick="togSec(this)"><h3>Color &amp; Brightness</h3><span class="arr">&#9660;</span></div>
+  <div class="sec-body">
+    <div class="colors" id="colorGrid"></div>
+    <div class="custom-color">
+      <span style="font-size:13px;color:var(--text2)">Custom:</span>
+      <input type="color" id="customColor" value="#00ff00">
+      <button class="btn btn-secondary" style="padding:10px 16px;font-size:13px" onclick="applyCustomColor()">Apply</button>
+    </div>
+    <div class="slider-row" style="margin-top:14px">
+      <label>Brightness</label>
+      <input type="range" id="brightSlider" min="5" max="200" value="100">
+      <span class="val" id="brightVal">100</span>
+    </div>
+    <div style="margin-top:14px">
+      <h3 style="font-size:12px;margin-bottom:8px">Color Mode</h3>
+      <div class="radio-group">
+        <label><input type="radio" name="clrMode" value="0" checked onchange="send({cmd:'colormode',value:0})">Static</label>
+        <label><input type="radio" name="clrMode" value="1" onchange="send({cmd:'colormode',value:1})">Rainbow</label>
+        <label><input type="radio" name="clrMode" value="2" onchange="send({cmd:'colormode',value:2})">Crazy</label>
+        <label><input type="radio" name="clrMode" value="3" onchange="send({cmd:'colormode',value:3})">Wave</label>
+      </div>
+    </div>
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid #222">
+      <div class="toggle-row"><span>Sunrise auto-color</span><label class="toggle"><input type="checkbox" id="sunToggle" onchange="send({cmd:'sunrise',enabled:this.checked})"><span class="slider"></span></label></div>
+      <div style="font-size:11px;color:var(--text2);margin-top:2px">Overrides color choice — changes automatically by time of day</div>
+    </div>
+  </div>
+
+  <div class="sec-hdr" onclick="togSec(this)"><h3>Timezone</h3><span class="arr">&#9660;</span></div>
+  <div class="sec-body">
     <select id="tzSelect" onchange="setTimezone()"></select>
   </div>
-  <div class="card">
-    <h3>Daylight Saving (DST)</h3>
+
+  <div class="sec-hdr" onclick="togSec(this)"><h3>Night Shift & Colon LEDs</h3><span class="arr">&#9660;</span></div>
+  <div class="sec-body">
+    <div class="toggle-row"><span>Colon LEDs (seconds dots)</span><label class="toggle"><input type="checkbox" id="colonToggle" checked onchange="send({cmd:'colon',enabled:this.checked})"><span class="slider"></span></label></div>
+    <div style="font-size:11px;color:var(--text2);margin:4px 0 12px">Auto-off during night shift</div>
+    <div class="toggle-row"><span>Auto-dim at night</span><label class="toggle"><input type="checkbox" id="nsToggle" onchange="saveNightShift()"><span class="slider"></span></label></div>
+    <div class="slider-row" style="margin-top:10px"><label>Start</label><select id="nsStart" onchange="saveNightShift()" style="width:80px"></select><label>End</label><select id="nsEnd" onchange="saveNightShift()" style="width:80px"></select></div>
+    <div class="slider-row"><label>Brightness</label><input type="range" id="nsBright" min="5" max="80" value="15" onchange="saveNightShift()"><span class="val" id="nsBrightVal">15</span></div>
+  </div>
+
+  <div class="sec-hdr" onclick="togSec(this)"><h3>Buzzer</h3><span class="arr">&#9660;</span></div>
+  <div class="sec-body">
+    <div class="radio-group">
+      <label><input type="radio" name="buzz" value="0" onchange="send({cmd:'buzzer',level:0})">Off</label>
+      <label><input type="radio" name="buzz" value="1" onchange="send({cmd:'buzzer',level:1})">Low</label>
+      <label><input type="radio" name="buzz" value="2" checked onchange="send({cmd:'buzzer',level:2})">High</label>
+    </div>
+    <div class="toggle-row" style="margin-top:10px"><span>Clockwork chime (hourly)</span><label class="toggle"><input type="checkbox" id="cwToggle" onchange="send({cmd:'clockwork',enabled:this.checked})"><span class="slider"></span></label></div>
+    <div style="font-size:11px;color:var(--text2);margin:2px 0 10px">Chimes the hour count. Silent during night shift.</div>
+    <div style="text-align:center"><button class="btn btn-secondary" style="padding:8px 16px;font-size:12px" onclick="send({cmd:'buzztest'})">Test Buzzer</button></div>
+  </div>
+
+
+  <div class="sec-hdr" onclick="togSec(this)"><h3>Date Display</h3><span class="arr">&#9660;</span></div>
+  <div class="sec-body">
+    <div class="toggle-row"><span>Show date periodically</span><label class="toggle"><input type="checkbox" id="dateToggle" onchange="saveDate()"><span class="slider"></span></label></div>
+    <div class="slider-row"><label>Interval</label><input type="range" id="dateIntSlider" min="10" max="120" value="30" onchange="saveDate()"><span class="val" id="dateIntVal">30</span><span style="font-size:11px;color:var(--text2)">sec</span></div>
+  </div>
+
+
+  <div class="sec-hdr" onclick="togSec(this)"><h3>Birthdays</h3><span class="arr">&#9660;</span></div>
+  <div class="sec-body">
+    <div style="font-size:11px;color:var(--text2);margin-bottom:10px;line-height:1.5">On a birthday, the watch scrolls "HAPPY BDAY [name]" every hour with a celebration animation.</div>
+    <div id="bdayList" style="margin-bottom:8px"></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      <input type="text" id="bdayName" maxlength="15" placeholder="Name" style="width:80px;padding:6px;border-radius:6px;border:1px solid #333;background:var(--btn);color:var(--text);font-size:12px">
+      <input type="number" id="bdayDay" min="1" max="31" placeholder="DD" style="width:44px;padding:6px;border-radius:6px;border:1px solid #333;background:var(--btn);color:var(--text);font-size:12px">
+      <input type="number" id="bdayMon" min="1" max="12" placeholder="MM" style="width:44px;padding:6px;border-radius:6px;border:1px solid #333;background:var(--btn);color:var(--text);font-size:12px">
+      <button class="btn btn-primary" style="padding:6px 12px;font-size:12px" onclick="addBday()">Add</button>
+    </div>
+  </div>
+
+  <div class="sec-hdr" onclick="togSec(this)"><h3>DST Rules</h3><span class="arr">&#9660;</span></div>
+  <div class="sec-body">
     <div class="radio-group">
       <label><input type="radio" name="dst" value="0" onchange="setDST(0)">Off</label>
-      <label><input type="radio" name="dst" value="1" checked onchange="setDST(1)">Custom Rules</label>
+      <label><input type="radio" name="dst" value="1" checked onchange="setDST(1)">Custom</label>
       <label><input type="radio" name="dst" value="2" onchange="setDST(2)">Always On</label>
     </div>
     <div id="dstRules">
-      <div class="dst-rule">
-        <h4>DST Start (winter &rarr; summer)</h4>
-        <div class="row">
-          <select id="dsFL"><option value="1">Last</option><option value="0">First</option></select>
-          <select id="dsDow"></select>
-          <span style="color:var(--text2)">of</span>
-          <select id="dsMon"></select>
-          <span style="color:var(--text2)">at</span>
-          <input type="number" id="dsHour" value="2" min="0" max="23" style="width:48px"><span style="color:var(--text2)">:00</span>
-        </div>
-      </div>
-      <div class="dst-rule">
-        <h4>DST End (summer &rarr; winter)</h4>
-        <div class="row">
-          <select id="deFL"><option value="1">Last</option><option value="0">First</option></select>
-          <select id="deDow"></select>
-          <span style="color:var(--text2)">of</span>
-          <select id="deMon"></select>
-          <span style="color:var(--text2)">at</span>
-          <input type="number" id="deHour" value="2" min="0" max="23" style="width:48px"><span style="color:var(--text2)">:00</span>
-        </div>
-      </div>
-      <div class="btn-row" style="margin-top:14px">
-        <button class="btn btn-primary" style="font-size:13px" onclick="saveDSTRules()">Save Rules</button>
-        <button class="btn btn-secondary" style="font-size:13px" onclick="resetDSTIsrael()">Reset to Israel</button>
-      </div>
+      <div class="dst-rule"><h4>Start (winter &rarr; summer)</h4><div class="row"><select id="dsFL"><option value="1">Last</option><option value="0">First</option></select><select id="dsDow"></select><span style="color:var(--text2)">of</span><select id="dsMon"></select><span style="color:var(--text2)">at</span><input type="number" id="dsHour" value="2" min="0" max="23" style="width:44px"><span style="color:var(--text2)">:00</span></div></div>
+      <div class="dst-rule"><h4>End (summer &rarr; winter)</h4><div class="row"><select id="deFL"><option value="1">Last</option><option value="0">First</option></select><select id="deDow"></select><span style="color:var(--text2)">of</span><select id="deMon"></select><span style="color:var(--text2)">at</span><input type="number" id="deHour" value="2" min="0" max="23" style="width:44px"><span style="color:var(--text2)">:00</span></div></div>
+      <div class="btn-row" style="margin-top:10px"><button class="btn btn-primary" style="font-size:12px" onclick="saveDSTRules()">Save</button><button class="btn btn-secondary" style="font-size:12px" onclick="resetDSTIsrael()">Israel Default</button></div>
     </div>
   </div>
-  <div class="card">
-    <h3>Night Shift</h3>
-    <div class="toggle-row">
-      <span>Auto-dim at night</span>
-      <label class="toggle"><input type="checkbox" id="nsToggle" onchange="saveNightShift()"><span class="slider"></span></label>
-    </div>
-    <div class="slider-row" style="margin-top:12px">
-      <label>Start</label>
-      <select id="nsStart" onchange="saveNightShift()" style="width:80px"></select>
-      <label>End</label>
-      <select id="nsEnd" onchange="saveNightShift()" style="width:80px"></select>
-    </div>
-    <div class="slider-row">
-      <label>Night brightness</label>
-      <input type="range" id="nsBright" min="5" max="80" value="15" onchange="saveNightShift()">
-      <span class="val" id="nsBrightVal">15</span>
-    </div>
+
+  <div class="sec-hdr" onclick="togSec(this)"><h3>Firmware Update</h3><span class="arr">&#9660;</span></div>
+  <div class="sec-body" style="text-align:center">
+    <a href="/update" target="_blank" class="btn btn-secondary" style="display:inline-block;text-decoration:none;padding:10px 20px;font-size:13px">Open Update Page</a>
   </div>
-  <div class="card">
-    <h3>Sunrise Color Shift</h3>
-    <div class="toggle-row"><span>Auto color by time of day</span><label class="toggle"><input type="checkbox" id="sunToggle" onchange="send({cmd:'sunrise',enabled:this.checked})"><span class="slider"></span></label></div>
-  </div>
-  <div class="card">
-    <h3>Custom Message</h3>
-    <div class="toggle-row"><span>Enable scrolling message</span><label class="toggle"><input type="checkbox" id="msgToggle" onchange="saveMsg()"><span class="slider"></span></label></div>
-    <input type="text" id="msgText" maxlength="50" placeholder="Your message..." style="width:100%;padding:10px;border-radius:10px;border:1px solid #333;background:var(--btn);color:var(--text);font-size:14px;margin-top:10px">
-    <div class="slider-row" style="margin-top:8px"><label>Every</label><input type="number" id="msgIntH" min="0" max="23" value="1" style="width:48px;padding:8px;border-radius:8px;border:1px solid #333;background:var(--btn);color:var(--text)"><span style="font-size:13px;color:var(--text2)">h</span><input type="number" id="msgIntM" min="0" max="59" value="0" style="width:48px;padding:8px;border-radius:8px;border:1px solid #333;background:var(--btn);color:var(--text)"><span style="font-size:13px;color:var(--text2)">m</span></div>
-    <div class="btn-row" style="margin-top:10px"><button class="btn btn-primary" style="font-size:13px" onclick="saveMsg()">Save</button></div>
-  </div>
-  <div class="card">
-    <h3>Date Display</h3>
-    <div class="toggle-row"><span>Show date periodically</span><label class="toggle"><input type="checkbox" id="dateToggle" onchange="saveDate()"><span class="slider"></span></label></div>
-    <div class="slider-row"><label>Interval (sec)</label><input type="range" id="dateIntSlider" min="10" max="120" value="30" onchange="saveDate()"><span class="val" id="dateIntVal">30</span></div>
-  </div>
-  <div class="card">
-    <h3>Buzzer</h3>
-    <div class="toggle-row"><span>Buzzer on timer complete</span><label class="toggle"><input type="checkbox" id="buzzToggle" onchange="send({cmd:'buzzer',enabled:this.checked})"><span class="slider"></span></label></div>
-  </div>
-  <div class="card">
-    <h3>Gym Mode</h3>
-    <div class="toggle-row"><span>Max visibility (bright white)</span><label class="toggle"><input type="checkbox" id="gymToggle" onchange="send({cmd:'gym',enabled:this.checked})"><span class="slider"></span></label></div>
-  </div>
-  <div class="card">
-    <h3>Birthdays</h3>
-    <div id="bdayList"></div>
-    <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-      <input type="text" id="bdayName" maxlength="15" placeholder="Name" style="width:90px;padding:8px;border-radius:8px;border:1px solid #333;background:var(--btn);color:var(--text);font-size:13px">
-      <input type="number" id="bdayDay" min="1" max="31" placeholder="DD" style="width:48px;padding:8px;border-radius:8px;border:1px solid #333;background:var(--btn);color:var(--text);font-size:13px">
-      <input type="number" id="bdayMon" min="1" max="12" placeholder="MM" style="width:48px;padding:8px;border-radius:8px;border:1px solid #333;background:var(--btn);color:var(--text);font-size:13px">
-      <button class="btn btn-primary" style="padding:8px 14px;font-size:13px" onclick="addBday()">Add</button>
-    </div>
-  </div>
+
   <div class="card">
     <h3>WiFi</h3>
     <p style="font-size:14px;color:var(--text2)">SSID: <strong id="wifiSSID">--</strong></p>
     <p style="font-size:14px;color:var(--text2);margin-top:6px">IP: <strong id="wifiIP">--</strong></p>
     <p style="font-size:14px;color:var(--text2);margin-top:6px" id="rssiLine">Signal: --</p>
-    <div class="btn-row" style="margin-top:14px">
-      <button class="btn btn-danger" style="font-size:13px" onclick="resetWifi()">Reset WiFi</button>
-    </div>
+    <div class="btn-row" style="margin-top:10px"><button class="btn btn-danger" style="font-size:12px;padding:8px 14px" onclick="resetWifi()">Reset WiFi</button></div>
   </div>
+
   <div class="card">
-    <h3>Firmware Update (OTA)</h3>
-    <div style="text-align:center"><a href="/update" target="_blank" class="btn btn-secondary" style="display:inline-block;text-decoration:none;padding:10px 20px;font-size:13px">Open Update Page</a></div>
-  </div>
-  <div class="card">
-    <div class="status">Firmware v3.0 &middot; The Amazing Watch &middot; Udi & Noam Shorer</div>
+    <div class="status">v3.0 &middot; NeoTick &middot; <a href="https://www.instagram.com/ai.garage_" target="_blank" style="color:var(--accent);text-decoration:none">The AI Garage</a></div>
   </div>
 </div>
 
@@ -400,7 +384,7 @@ const SEGS='abcdefg';
 function initSegs(){for(let i=0;i<4;i++){const el=document.getElementById('sd'+i);el.innerHTML='';SEGS.split('').forEach(s=>{const sp=document.createElement('span');sp.className=s;el.appendChild(sp);});}}
 function setDigit(idx,val){const el=document.getElementById('sd'+idx);if(!el)return;const bits=val>=0&&val<=9?SEG[val]:0;const spans=el.querySelectorAll('span');SEGS.split('').forEach((s,i)=>{spans[i].classList.toggle('on',!!(bits&(0x40>>i)));});}
 function updateSeg(){if(st.dv===undefined)return;const v=st.dv;if(st.db){setDigit(0,-1);setDigit(1,-1);setDigit(2,-1);setDigit(3,-1);}else{setDigit(0,Math.floor(v/1000)%10);setDigit(1,Math.floor(v/100)%10);setDigit(2,Math.floor(v/10)%10);setDigit(3,v%10);}}
-function makeWheel(id,max){const el=document.getElementById(id);el.innerHTML='';for(let i=0;i<=max;i++){const d=document.createElement('div');d.textContent=String(i).padStart(2,'0');el.appendChild(d);}}
+function makeWheel(id,max){const el=document.getElementById(id);el.innerHTML='';for(let i=0;i<=max;i++){const d=document.createElement('div');d.textContent=String(i);el.appendChild(d);}}
 function setWheel(id,val){const el=document.getElementById(id);setTimeout(()=>{el.scrollTop=val*40;},50);}
 function getWheel(id){return Math.max(0,Math.round(document.getElementById(id).scrollTop/40));}
 function init(){
@@ -413,7 +397,7 @@ function init(){
   document.querySelectorAll('.tab').forEach(t=>{
     t.onclick=()=>{
       const dest=t.dataset.tab;
-      const m={clock:0,stopwatch:1,timer:2,tabata:3,pomodoro:6,settings:-1};
+      const m={clock:0,stopwatch:1,timer:2,tabata:3,pomodoro:4,settings:-1};
       const destMode=m[dest];
       if(destMode!==undefined&&destMode>=0){
         const running=(st.swRun&&dest!=='stopwatch')||(st.tmRun&&dest!=='timer')||(st.tabRun&&dest!=='tabata');
@@ -454,12 +438,13 @@ function connectWS(){
   ws.onerror=()=>ws.close();
 }
 function send(o){if(ws&&ws.readyState===1)ws.send(JSON.stringify(o));}
+function togSec(el){el.classList.toggle('open');el.nextElementSibling.classList.toggle('show');}
 function P(n){return String(n).padStart(2,'0');}
 function updateUI(){
   if(firstState&&st.mode!==undefined){
     firstState=false;
     lastMode=st.mode;
-    const tabs=['clock','stopwatch','timer','tabata','crazy','clock','pomodoro'];
+    const tabs=['clock','stopwatch','timer','tabata','pomodoro'];
     const dest=tabs[st.mode]||'clock';
     document.querySelectorAll('.tab,.panel').forEach(e=>e.classList.remove('active'));
     document.querySelector('.tab[data-tab="'+dest+'"]').classList.add('active');
@@ -467,7 +452,7 @@ function updateUI(){
   }
   if(st.mode!==undefined&&st.mode!==lastMode){
     lastMode=st.mode;
-    const tabs=['clock','stopwatch','timer','tabata','crazy','clock','pomodoro'];
+    const tabs=['clock','stopwatch','timer','tabata','pomodoro'];
     const dest=tabs[st.mode]||'clock';
     document.querySelectorAll('.tab,.panel').forEach(e=>e.classList.remove('active'));
     document.querySelector('.tab[data-tab="'+dest+'"]').classList.add('active');
@@ -560,10 +545,7 @@ function updateUI(){
     document.getElementById('tabSummary').style.display=(st.tabRun||st.tabDone)?'':'none';
   }
   if(st.animTr!==undefined){document.getElementById('animToggle').checked=st.animTr;}
-  if(st.mode===4){document.getElementById('crazyToggle').textContent='Stop Crazy Mode';document.getElementById('crazyToggle').className='btn btn-danger';}
-  else{document.getElementById('crazyToggle').textContent='Crazy Mode';document.getElementById('crazyToggle').className='btn btn-secondary';}
-  if(st.mode===5){document.getElementById('rainbowToggle').textContent='Stop Rainbow';document.getElementById('rainbowToggle').className='btn btn-danger';}
-  else{document.getElementById('rainbowToggle').textContent='Rainbow';document.getElementById('rainbowToggle').className='btn btn-secondary';}
+  if(st.clrMode!==undefined){var r=document.querySelector('input[name=clrMode][value="'+st.clrMode+'"]');if(r)r.checked=true;}
   if(st.pomMs!==undefined){
     var ms=Math.max(0,st.pomMs),s=Math.ceil(ms/1000),m=Math.floor(s/60);
     document.getElementById('pomDisp').textContent=P(m)+':'+P(s%60);
@@ -579,11 +561,11 @@ function updateUI(){
   if(st.pomTotal!==undefined){document.getElementById('pomIntSlider').value=st.pomTotal;document.getElementById('pomIntVal').textContent=st.pomTotal;}
   document.getElementById('pomIntSlider').oninput=function(){document.getElementById('pomIntVal').textContent=this.value;};
   if(st.sunClr!==undefined)document.getElementById('sunToggle').checked=st.sunClr;
-  if(st.msgEn!==undefined){document.getElementById('msgToggle').checked=st.msgEn;document.getElementById('msgText').value=st.msgTxt||'';var mi=st.msgInt||60;document.getElementById('msgIntH').value=Math.floor(mi/60);document.getElementById('msgIntM').value=mi%60;}
   if(st.dateEn!==undefined){document.getElementById('dateToggle').checked=st.dateEn;document.getElementById('dateIntSlider').value=st.dateInt||30;document.getElementById('dateIntVal').textContent=st.dateInt||30;}
   document.getElementById('dateIntSlider').oninput=function(){document.getElementById('dateIntVal').textContent=this.value;};
-  if(st.buzzEn!==undefined)document.getElementById('buzzToggle').checked=st.buzzEn;
-  if(st.gymEn!==undefined)document.getElementById('gymToggle').checked=st.gymEn;
+  if(st.colonEn!==undefined)document.getElementById('colonToggle').checked=st.colonEn;
+  if(st.buzzLv!==undefined){var r=document.querySelector('input[name=buzz][value="'+st.buzzLv+'"]');if(r)r.checked=true;}
+  if(st.cwBuzz!==undefined)document.getElementById('cwToggle').checked=st.cwBuzz;
   if(st.rssi!==undefined){var r=st.rssi,q=r>-50?'Excellent':r>-65?'Good':r>-75?'Weak':'Poor',cl=r>-50?'var(--success)':r>-65?'var(--accent)':r>-75?'#FFA500':'var(--danger)';document.getElementById('rssiLine').innerHTML='Signal: <strong style="color:'+cl+'">'+r+' dBm ('+q+')</strong>';}
   if(st.bdays){var bl=document.getElementById('bdayList');bl.innerHTML='';st.bdays.forEach(function(b,i){bl.innerHTML+='<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:13px"><span>'+b.n+' - '+P(b.d)+'/'+P(b.m)+'</span><button class="btn btn-danger" style="padding:4px 10px;font-size:11px" onclick="delBday('+i+')">X</button></div>';});}
   if(st.tabPresets){var sel=document.getElementById('tabPresetSel');sel.innerHTML='';st.tabPresets.forEach(function(p,i){if(p.n){var o=document.createElement('option');o.value=i;o.textContent=p.n+' ('+p.w+'s/'+p.r+'s)';sel.appendChild(o);}});}
@@ -605,6 +587,7 @@ function swToggle(){
 function tmSet(){send({cmd:'timer',action:'set',duration:(getWheel('timerMinW')*60+getWheel('timerSecW'))*1000});}
 function tmToggle(){
   if(st.tmRun) send({cmd:'timer',action:'stop'});
+  else if(st.tmMs>0&&!st.tmDone) send({cmd:'timer',action:'start'});
   else send({cmd:'timer',action:'start',duration:(getWheel('timerMinW')*60+getWheel('timerSecW'))*1000});
 }
 function tabToggle(){
@@ -624,12 +607,12 @@ function applyCustomColor(){const h=document.getElementById('customColor').value
 function saveNightShift(){send({cmd:'nightshift',enabled:document.getElementById('nsToggle').checked,start:+document.getElementById('nsStart').value,end:+document.getElementById('nsEnd').value,bright:+document.getElementById('nsBright').value});}
 function pomToggle(){if(st.pomRun)send({cmd:'pom',action:'stop'});else send({cmd:'pom',action:'start'});}
 function savePomInt(){send({cmd:'pom_cfg',intervals:+document.getElementById('pomIntSlider').value});}
-function saveMsg(){send({cmd:'custmsg',text:document.getElementById('msgText').value,intervalMin:+document.getElementById('msgIntH').value*60+ +document.getElementById('msgIntM').value,enabled:document.getElementById('msgToggle').checked});}
 function saveDate(){send({cmd:'datedisp',enabled:document.getElementById('dateToggle').checked,interval:+document.getElementById('dateIntSlider').value});}
 function addBday(){var n=document.getElementById('bdayName').value,d=+document.getElementById('bdayDay').value,m=+document.getElementById('bdayMon').value;if(n&&d&&m)send({cmd:'bday_add',name:n,day:d,month:m});document.getElementById('bdayName').value='';}
 function delBday(i){send({cmd:'bday_del',index:i});}
 function loadTabPreset(){send({cmd:'tab_preset_load',index:+document.getElementById('tabPresetSel').value});}
 function saveTabPreset(){var n=document.getElementById('tabPresetName').value;if(!n)return;var ws=getWheel('tabWorkMinW')*60+getWheel('tabWorkSecW'),rs=getWheel('tabRestMinW')*60+getWheel('tabRestSecW');send({cmd:'tab_preset_save',name:n,work:ws||20,rest:rs||10,intervals:getWheel('tabIntW')||8});}
+function delTabPreset(){var i=+document.getElementById('tabPresetSel').value;send({cmd:'tab_preset_del',index:i});}
 init();
 </script>
 </body></html>
@@ -664,6 +647,7 @@ void WebUI::tabataReset() { m_tabRunning = false; m_tabDone = false; m_tabWorkPh
 long WebUI::getTabataPhaseRemaining() const { if (!m_tabRunning) return (long)m_tabPhaseDuration; unsigned long e = millis() - m_tabPhaseStart; return (e >= m_tabPhaseDuration) ? 0 : (long)(m_tabPhaseDuration - e); }
 void WebUI::tabataAdvance() {
     if (!m_tabRunning || getTabataPhaseRemaining() > 0) return;
+    m_tabPhaseChanged = true;  // signal main.cpp to buzz
     if (m_tabWorkPhase) {
         m_tabWorkPhase = false; m_tabPhaseDuration = (unsigned long)m_settings->tabata.restSec * 1000; m_tabPhaseStart = millis();
     } else {
@@ -736,55 +720,53 @@ void WebUI::handleWebSocketMessage(AsyncWebSocketClient* client, uint8_t* data, 
     if (vs < 0 || ve < 0) return;
     String cmd = msg.substring(vs + 1, ve);
 
-    if (cmd == "color") { int i = extractInt(msg, "index"); if (i >= 0 && i < m_display->getColorCount()) { m_display->setColorByIndex(i); m_settings->colorIndex = i; m_configStore->saveColor(i, 0, 0, 0); } }
-    else if (cmd == "customcolor") { int r = extractInt(msg, "r"), g = extractInt(msg, "g"), b = extractInt(msg, "b"); m_display->setColor(CRGB(r, g, b)); m_settings->colorIndex = -1; m_settings->customR = r; m_settings->customG = g; m_settings->customB = b; m_configStore->saveColor(-1, r, g, b); }
-    else if (cmd == "brightness") { int v = extractInt(msg, "value"); if (v >= 0) { m_display->setBrightness(v); m_settings->brightness = v; m_configStore->saveBrightness(v); } }
+    if (cmd == "color") { int i = extractInt(msg, "index"); if (i >= 0 && i < m_display->getColorCount()) { m_display->setColorByIndex(i); m_settings->colorIndex = i; m_pendingSave = millis(); } }
+    else if (cmd == "customcolor") { int r = extractInt(msg, "r"), g = extractInt(msg, "g"), b = extractInt(msg, "b"); m_display->setColor(CRGB(r, g, b)); m_settings->colorIndex = -1; m_settings->customR = r; m_settings->customG = g; m_settings->customB = b; m_pendingSave = millis(); }
+    else if (cmd == "brightness") { int v = extractInt(msg, "value"); if (v >= 0) { m_display->setBrightness(v); m_settings->brightness = v; m_pendingSave = millis(); } }
     else if (cmd == "mode") { int v = extractInt(msg, "value"); if (v >= 0 && v <= 4) m_mode = (DisplayMode)v; }
-    else if (cmd == "clockfmt") { bool mmss = extractBool(msg, "mmss"); m_settings->clockShowMMSS = mmss; Preferences p; p.begin("watchsettings", false); p.putBool("mmss", mmss); p.end(); }
+    else if (cmd == "clockfmt") { m_settings->clockShowMMSS = extractBool(msg, "mmss"); m_pendingSave = millis(); }
     else if (cmd == "sw") { String a = extractString(msg, "action"); if (a == "start") stopwatchStart(); else if (a == "restart") stopwatchRestart(); else if (a == "stop") stopwatchStop(); else if (a == "reset") stopwatchReset(); }
     else if (cmd == "timer") { String a = extractString(msg, "action"); if (a == "start") { int d = extractInt(msg, "duration"); if (d > 0) timerSet(d); timerStart(); } else if (a == "set") { int d = extractInt(msg, "duration"); if (d > 0) timerSet(d); } else if (a == "stop") timerStop(); else if (a == "reset") timerReset(); }
     else if (cmd == "tabata") { String a = extractString(msg, "action"); if (a == "start") tabataStart(); else if (a == "stop") tabataStop(); else if (a == "reset") tabataReset(); }
-    else if (cmd == "tabata_cfg") { int w = extractInt(msg, "work"), r = extractInt(msg, "rest"), n = extractInt(msg, "intervals"), wc = extractInt(msg, "workColor"), rc = extractInt(msg, "restColor"); if (w > 0) m_settings->tabata.workSec = w; if (r > 0) m_settings->tabata.restSec = r; if (n > 0) m_settings->tabata.intervals = n; if (wc >= 0) m_settings->tabata.workColorIdx = wc; if (rc >= 0) m_settings->tabata.restColorIdx = rc; m_configStore->saveTabata(m_settings->tabata); tabataReset(); }
-    else if (cmd == "timezone") { long v = (long)extractInt(msg, "value"); m_timeMgr->setTimezoneOffset(v); m_settings->timezoneOffset = v; m_configStore->saveTimezone(v); }
-    else if (cmd == "dst") { int v = extractInt(msg, "value"); m_timeMgr->setDSTMode(v); m_settings->dstMode = v; m_configStore->saveDSTMode(v); }
-    else if (cmd == "dst_rules") { DSTRule s, e; s.isLast = extractBool(msg, "dsFL"); s.dayOfWeek = extractInt(msg, "dsDow"); s.month = extractInt(msg, "dsMon"); s.hour = extractInt(msg, "dsH"); e.isLast = extractBool(msg, "deFL"); e.dayOfWeek = extractInt(msg, "deDow"); e.month = extractInt(msg, "deMon"); e.hour = extractInt(msg, "deH"); m_settings->dstStart = s; m_settings->dstEnd = e; m_timeMgr->setDSTRules(s, e); m_configStore->saveDSTRules(s, e); }
-    else if (cmd == "dst_reset_israel") { m_settings->dstStart = DST_ISRAEL_START; m_settings->dstEnd = DST_ISRAEL_END; m_timeMgr->resetDSTToIsrael(); m_configStore->saveDSTRules(m_settings->dstStart, m_settings->dstEnd); }
+    else if (cmd == "tabata_cfg") { int w = extractInt(msg, "work"), r = extractInt(msg, "rest"), n = extractInt(msg, "intervals"), wc = extractInt(msg, "workColor"), rc = extractInt(msg, "restColor"); if (w > 0) m_settings->tabata.workSec = w; if (r > 0) m_settings->tabata.restSec = r; if (n > 0) m_settings->tabata.intervals = n; if (wc >= 0) m_settings->tabata.workColorIdx = wc; if (rc >= 0) m_settings->tabata.restColorIdx = rc; m_pendingSave = millis(); tabataReset(); }
+    else if (cmd == "timezone") { long v = (long)extractInt(msg, "value"); m_timeMgr->setTimezoneOffset(v); m_settings->timezoneOffset = v; m_pendingSave = millis(); }
+    else if (cmd == "dst") { int v = extractInt(msg, "value"); m_timeMgr->setDSTMode(v); m_settings->dstMode = v; m_pendingSave = millis(); }
+    else if (cmd == "dst_rules") { DSTRule s, e; s.isLast = extractBool(msg, "dsFL"); s.dayOfWeek = extractInt(msg, "dsDow"); s.month = extractInt(msg, "dsMon"); s.hour = extractInt(msg, "dsH"); e.isLast = extractBool(msg, "deFL"); e.dayOfWeek = extractInt(msg, "deDow"); e.month = extractInt(msg, "deMon"); e.hour = extractInt(msg, "deH"); m_settings->dstStart = s; m_settings->dstEnd = e; m_timeMgr->setDSTRules(s, e); m_pendingSave = millis(); }
+    else if (cmd == "dst_reset_israel") { m_settings->dstStart = DST_ISRAEL_START; m_settings->dstEnd = DST_ISRAEL_END; m_timeMgr->resetDSTToIsrael(); m_pendingSave = millis(); }
     else if (cmd == "animate") { m_animationRequested = true; }
-    else if (cmd == "crazy") { m_mode = (m_mode == MODE_CRAZY) ? MODE_CLOCK : MODE_CRAZY; }
-    else if (cmd == "animtoggle") { bool v = extractBool(msg, "value"); m_settings->animateTransitions = v; Preferences p; p.begin("watchsettings", false); p.putBool("animTr", v); p.end(); }
-    else if (cmd == "nightshift") { m_settings->nightShiftEnabled = extractBool(msg, "enabled"); m_settings->nightShiftStartHour = extractInt(msg, "start"); m_settings->nightShiftEndHour = extractInt(msg, "end"); m_settings->nightShiftBrightness = extractInt(msg, "bright"); m_configStore->saveNightShift(m_settings->nightShiftEnabled, m_settings->nightShiftStartHour, m_settings->nightShiftEndHour, m_settings->nightShiftBrightness); }
-    else if (cmd == "rainbow") { m_mode = (m_mode == MODE_RAINBOW) ? MODE_CLOCK : MODE_RAINBOW; }
+    else if (cmd == "colon") { m_settings->colonLedsEnabled = extractBool(msg, "enabled"); m_pendingSave = millis(); }
+    else if (cmd == "colormode") { int v = extractInt(msg, "value"); if (v >= 0 && v <= 3) { m_settings->colorMode = v; m_pendingSave = millis(); } }
+    else if (cmd == "animtoggle") { m_settings->animateTransitions = extractBool(msg, "value"); m_pendingSave = millis(); }
+    else if (cmd == "nightshift") { m_settings->nightShiftEnabled = extractBool(msg, "enabled"); m_settings->nightShiftStartHour = extractInt(msg, "start"); m_settings->nightShiftEndHour = extractInt(msg, "end"); m_settings->nightShiftBrightness = extractInt(msg, "bright"); m_pendingSave = millis(); }
     else if (cmd == "pom") { String a = extractString(msg, "action"); if (a == "start") pomodoroStart(); else if (a == "stop") pomodoroStop(); else if (a == "reset") pomodoroReset(); }
-    else if (cmd == "pom_cfg") { int n = extractInt(msg, "intervals"); if (n > 0 && n <= 8) { m_settings->pomodoroIntervals = n; m_configStore->savePomodoroIntervals(n); } }
-    else if (cmd == "sunrise") { m_settings->sunriseColorEnabled = extractBool(msg, "enabled"); m_configStore->saveSunriseColor(m_settings->sunriseColorEnabled); }
-    else if (cmd == "custmsg") { String t = extractString(msg, "text"); strncpy(m_settings->customMessage, t.c_str(), 50); m_settings->customMessage[50] = 0; m_settings->messageIntervalMin = extractInt(msg, "intervalMin"); m_settings->messageEnabled = extractBool(msg, "enabled"); m_configStore->saveCustomMessage(m_settings->customMessage, m_settings->messageIntervalMin, m_settings->messageEnabled); }
-    else if (cmd == "datedisp") { m_settings->showDateEnabled = extractBool(msg, "enabled"); int iv = extractInt(msg, "interval"); if (iv > 0) m_settings->showDateIntervalSec = iv; m_configStore->saveDateDisplay(m_settings->showDateEnabled, m_settings->showDateIntervalSec); }
-    else if (cmd == "buzzer") { m_settings->buzzerEnabled = extractBool(msg, "enabled"); m_configStore->saveBuzzer(m_settings->buzzerEnabled); }
-    else if (cmd == "gym") { m_settings->gymModeEnabled = extractBool(msg, "enabled"); m_configStore->saveGymMode(m_settings->gymModeEnabled); if (m_settings->gymModeEnabled) { m_display->setBrightness(MAX_BRIGHTNESS); m_display->setOverrideColor(CRGB::White); } else { m_display->setBrightness(m_settings->brightness); m_display->clearOverrideColor(); } }
+    else if (cmd == "pom_cfg") { int n = extractInt(msg, "intervals"); if (n > 0 && n <= 8) { m_settings->pomodoroIntervals = n; m_pendingSave = millis(); } }
+    else if (cmd == "sunrise") { m_settings->sunriseColorEnabled = extractBool(msg, "enabled"); m_pendingSave = millis(); }
+    else if (cmd == "datedisp") { m_settings->showDateEnabled = extractBool(msg, "enabled"); int iv = extractInt(msg, "interval"); if (iv > 0) m_settings->showDateIntervalSec = iv; m_pendingSave = millis(); }
+    else if (cmd == "buzzer") { int lv = extractInt(msg, "level"); if (lv >= 0 && lv <= 2) { m_settings->buzzerLevel = lv; m_pendingSave = millis(); } }
+    else if (cmd == "buzztest") { m_buzzerTestRequested = true; }
+    else if (cmd == "clockwork") { m_settings->clockworkBuzzer = extractBool(msg, "enabled"); m_pendingSave = millis(); }
+    else if (cmd == "gym") { m_settings->gymModeEnabled = extractBool(msg, "enabled"); m_pendingSave = millis(); }
     else if (cmd == "bday_add") { int idx = m_settings->birthdayCount; if (idx < MAX_BIRTHDAYS) { Birthday b; String n = extractString(msg, "name"); strncpy(b.name, n.c_str(), 15); b.name[15] = 0; b.day = extractInt(msg, "day"); b.month = extractInt(msg, "month"); m_configStore->saveBirthday(idx, b); m_settings->birthdayCount = idx + 1; Preferences p; p.begin("watchsettings", false); p.putUChar("bdCnt", m_settings->birthdayCount); p.end(); } }
     else if (cmd == "bday_del") { int i = extractInt(msg, "index"); if (i >= 0 && i < m_settings->birthdayCount) { for (int j = i; j < m_settings->birthdayCount - 1; j++) { Birthday b; m_configStore->loadBirthday(j + 1, b); m_configStore->saveBirthday(j, b); } m_settings->birthdayCount--; Birthday empty; m_configStore->saveBirthday(m_settings->birthdayCount, empty); Preferences p; p.begin("watchsettings", false); p.putUChar("bdCnt", m_settings->birthdayCount); p.end(); } }
     else if (cmd == "tab_preset_save") { String n = extractString(msg, "name"); int w = extractInt(msg, "work"), r = extractInt(msg, "rest"), iv = extractInt(msg, "intervals"); TabataPreset p; strncpy(p.name, n.c_str(), 15); p.name[15] = 0; p.workSec = w; p.restSec = r; p.intervals = iv; for (int i = 0; i < MAX_TABATA_PRESETS; i++) { TabataPreset ex; m_configStore->loadTabataPreset(i, ex); if (ex.name[0] == 0) { m_configStore->saveTabataPreset(i, p); break; } } }
+    else if (cmd == "tab_preset_del") { int i = extractInt(msg, "index"); if (i >= 0 && i < MAX_TABATA_PRESETS) { TabataPreset empty; m_configStore->saveTabataPreset(i, empty); } }
     else if (cmd == "tab_preset_load") { int i = extractInt(msg, "index"); TabataPreset p; m_configStore->loadTabataPreset(i, p); if (p.name[0]) { m_settings->tabata.workSec = p.workSec; m_settings->tabata.restSec = p.restSec; m_settings->tabata.intervals = p.intervals; m_configStore->saveTabata(m_settings->tabata); tabataReset(); } }
     else if (cmd == "resetwifi") { Preferences p; p.begin(NVS_NAMESPACE, false); p.remove("ssid"); p.remove("pass"); p.end(); delay(500); ESP.restart(); }
     broadcastState();
 }
 
 // ======================== State Broadcast ========================
-String WebUI::buildStateJSON() {
+// Fast state: only dynamic values that change every second (~300 bytes)
+String WebUI::buildFastJSON() {
     String j = "{\"h\":"; j += m_timeMgr->getHours();
     j += ",\"m\":"; j += m_timeMgr->getMinutes();
     j += ",\"s\":"; j += m_timeMgr->getSeconds();
     j += ",\"dv\":"; j += m_displayValue;
     j += ",\"db\":"; j += m_displayBlank ? "true" : "false";
-    j += ",\"synced\":"; j += m_timeMgr->isTimeSynced() ? "true" : "false";
-    j += ",\"wifiLost\":"; j += (WiFi.status() != WL_CONNECTED) ? "true" : "false";
-    j += ",\"colorIdx\":"; j += m_display->getColorIndex();
-    j += ",\"bright\":"; j += m_display->getBrightness();
+    j += ",\"mode\":"; j += (int)m_mode;
     CRGB c = m_display->activeColor();
     char hex[8]; snprintf(hex, sizeof(hex), "#%02X%02X%02X", c.r, c.g, c.b);
     j += ",\"clr\":\""; j += hex; j += "\"";
-    j += ",\"mode\":"; j += (int)m_mode;
-    j += ",\"mmss\":"; j += m_settings->clockShowMMSS ? "true" : "false";
     j += ",\"swMs\":"; j += getStopwatchElapsed();
     j += ",\"swRun\":"; j += m_swRunning ? "true" : "false";
     j += ",\"tmMs\":"; j += getTimerRemaining();
@@ -795,9 +777,29 @@ String WebUI::buildStateJSON() {
     j += ",\"tabRun\":"; j += m_tabRunning ? "true" : "false";
     j += ",\"tabWork\":"; j += m_tabWorkPhase ? "true" : "false";
     j += ",\"tabInt\":"; j += m_tabCurrentInterval;
-    j += ",\"tabTotal\":"; j += m_settings->tabata.intervals;
     j += ",\"tabDone\":"; j += m_tabDone ? "true" : "false";
     j += ",\"tabPaused\":"; j += (!m_tabRunning && !m_tabDone && m_tabPhaseStart > 0) ? "true" : "false";
+    j += ",\"pomMs\":"; j += getPomodoroPhaseRemaining();
+    j += ",\"pomRun\":"; j += m_pomRunning ? "true" : "false";
+    j += ",\"pomWork\":"; j += m_pomWorkPhase ? "true" : "false";
+    j += ",\"pomInt\":"; j += m_pomCurrentInterval;
+    j += ",\"pomDone\":"; j += m_pomDone ? "true" : "false";
+    j += ",\"anim\":"; j += m_animating ? "true" : "false";
+    j += "}";
+    return j;
+}
+
+// Full state: everything including settings (sent on connect + after settings change)
+String WebUI::buildStateJSON() {
+    String j = buildFastJSON();
+    // Remove closing brace and append settings
+    j.remove(j.length() - 1);
+    j += ",\"synced\":"; j += m_timeMgr->isTimeSynced() ? "true" : "false";
+    j += ",\"wifiLost\":"; j += (WiFi.status() != WL_CONNECTED) ? "true" : "false";
+    j += ",\"colorIdx\":"; j += m_display->getColorIndex();
+    j += ",\"bright\":"; j += m_display->getBrightness();
+    j += ",\"mmss\":"; j += m_settings->clockShowMMSS ? "true" : "false";
+    j += ",\"tabTotal\":"; j += m_settings->tabata.intervals;
     j += ",\"tz\":"; j += m_timeMgr->getTimezoneOffset();
     j += ",\"dst\":"; j += m_timeMgr->getDSTMode();
     j += ",\"dsFL\":"; j += m_settings->dstStart.isLast ? "true" : "false";
@@ -813,28 +815,21 @@ String WebUI::buildStateJSON() {
     j += ",\"tbInt2\":"; j += m_settings->tabata.intervals;
     j += ",\"tbWC\":"; j += m_settings->tabata.workColorIdx;
     j += ",\"tbRC\":"; j += m_settings->tabata.restColorIdx;
-    j += ",\"anim\":"; j += m_animating ? "true" : "false";
     j += ",\"animTr\":"; j += m_settings->animateTransitions ? "true" : "false";
     j += ",\"nsEn\":"; j += m_settings->nightShiftEnabled ? "true" : "false";
     j += ",\"nsStart\":"; j += m_settings->nightShiftStartHour;
     j += ",\"nsEnd\":"; j += m_settings->nightShiftEndHour;
     j += ",\"nsBright\":"; j += m_settings->nightShiftBrightness;
-    j += ",\"pomMs\":"; j += getPomodoroPhaseRemaining();
-    j += ",\"pomRun\":"; j += m_pomRunning ? "true" : "false";
-    j += ",\"pomWork\":"; j += m_pomWorkPhase ? "true" : "false";
-    j += ",\"pomInt\":"; j += m_pomCurrentInterval;
     j += ",\"pomTotal\":"; j += m_settings->pomodoroIntervals;
-    j += ",\"pomDone\":"; j += m_pomDone ? "true" : "false";
     j += ",\"sunClr\":"; j += m_settings->sunriseColorEnabled ? "true" : "false";
-    j += ",\"msgEn\":"; j += m_settings->messageEnabled ? "true" : "false";
-    j += ",\"msgInt\":"; j += m_settings->messageIntervalMin;
-    j += ",\"msgTxt\":\""; j += m_settings->customMessage; j += "\"";
     j += ",\"dateEn\":"; j += m_settings->showDateEnabled ? "true" : "false";
     j += ",\"dateInt\":"; j += m_settings->showDateIntervalSec;
-    j += ",\"buzzEn\":"; j += m_settings->buzzerEnabled ? "true" : "false";
+    j += ",\"colonEn\":"; j += m_settings->colonLedsEnabled ? "true" : "false";
+    j += ",\"buzzLv\":"; j += m_settings->buzzerLevel;
+    j += ",\"cwBuzz\":"; j += m_settings->clockworkBuzzer ? "true" : "false";
     j += ",\"gymEn\":"; j += m_settings->gymModeEnabled ? "true" : "false";
+    j += ",\"clrMode\":"; j += m_settings->colorMode;
     j += ",\"rssi\":"; j += WiFi.RSSI();
-    // Birthdays
     j += ",\"bdays\":[";
     for (int i = 0; i < m_settings->birthdayCount && i < MAX_BIRTHDAYS; i++) {
         Birthday b; m_configStore->loadBirthday(i, b);
@@ -842,7 +837,6 @@ String WebUI::buildStateJSON() {
         j += "{\"n\":\""; j += b.name; j += "\",\"d\":"; j += b.day; j += ",\"m\":"; j += b.month; j += "}";
     }
     j += "]";
-    // Tabata presets
     j += ",\"tabPresets\":[";
     for (int i = 0; i < MAX_TABATA_PRESETS; i++) {
         TabataPreset p; m_configStore->loadTabataPreset(i, p);
@@ -855,7 +849,8 @@ String WebUI::buildStateJSON() {
     return j;
 }
 
-void WebUI::broadcastState() { if (!m_ws || m_ws->count() == 0) return; m_ws->textAll(buildStateJSON()); }
+// Regular broadcast: fast JSON only. Full state sent on connect + after commands.
+void WebUI::broadcastState() { if (!m_ws || m_ws->count() == 0) return; m_ws->textAll(buildFastJSON()); }
 
 // ======================== Setup ========================
 void WebUI::begin(LedDisplay* display, TimeManager* timeMgr, ConfigStore* configStore, WatchSettings* settings, WifiManager* wifiMgr) {
@@ -898,7 +893,14 @@ void WebUI::update() {
     tabataAdvance();
     pomodoroAdvance();
     if (m_timerRunning && getTimerRemaining() <= 0) { m_timerRunning = false; m_timerRemaining = 0; m_timerDone = true; }
-    unsigned long iv = (m_swRunning || m_tabRunning) ? 200 : 500;
+
+    // Deferred NVS save: batch all changes, write once 2 seconds after last change
     unsigned long now = millis();
+    if (m_pendingSave > 0 && now - m_pendingSave >= 2000) {
+        m_pendingSave = 0;
+        m_configStore->save(*m_settings);  // single NVS write for all settings
+    }
+
+    unsigned long iv = (m_swRunning || m_tabRunning) ? 200 : 500;
     if (now - m_lastBroadcast >= iv) { m_lastBroadcast = now; broadcastState(); m_ws->cleanupClients(); }
 }

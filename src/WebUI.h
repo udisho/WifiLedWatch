@@ -21,11 +21,16 @@ public:
     // Set what the physical display is currently showing (called by main.cpp)
     void setDisplayValue(int value) { m_displayValue = value; }
     void setDisplayBlank(bool blank) { m_displayBlank = blank; }
+    int getDisplayValue() const { return m_displayValue; }
+    bool isDisplayBlank() const { return m_displayBlank; }
 
     // Animation trigger (consumed by main loop)
     bool shouldRunAnimation() { bool v = m_animationRequested; m_animationRequested = false; return v; }
     void setAnimating(bool v) { m_animating = v; }
     bool isAnimating() const { return m_animating; }
+
+    // Buzzer test (consumed by main loop)
+    bool shouldTestBuzzer() { bool v = m_buzzerTestRequested; m_buzzerTestRequested = false; return v; }
 
     // Stopwatch
     bool isStopwatchRunning() const { return m_swRunning; }
@@ -51,6 +56,7 @@ public:
     int  getTabataCurrentInterval() const { return m_tabCurrentInterval; }
     long getTabataPhaseRemaining() const;
     bool isTabataDone() const { return m_tabDone; }
+    bool tabataPhaseChanged() { bool v = m_tabPhaseChanged; m_tabPhaseChanged = false; return v; }
     void tabataStart();
     void tabataStop();
     void tabataReset();
@@ -99,6 +105,7 @@ private:
     int  m_tabCurrentInterval = 1;
     unsigned long m_tabPhaseStart = 0;
     unsigned long m_tabPhaseDuration = 0;
+    bool m_tabPhaseChanged = false;
 
     // Pomodoro
     bool m_pomRunning = false;
@@ -115,6 +122,11 @@ private:
     // Animation
     bool m_animationRequested = false;
     bool m_animating = false;
+    bool m_buzzerTestRequested = false;
+
+    // Deferred NVS save (avoid flooding on rapid changes)
+    unsigned long m_pendingSave = 0;
+    bool m_settingsDirty = false;  // track if anything actually changed
 
     // Broadcast timing
     unsigned long m_lastBroadcast = 0;
@@ -122,6 +134,7 @@ private:
     void setupRoutes();
     void handleWebSocketMessage(AsyncWebSocketClient* client, uint8_t* data, size_t len);
     void broadcastState();
+    String buildFastJSON();
     String buildStateJSON();
     void tabataAdvance();
     void pomodoroAdvance();

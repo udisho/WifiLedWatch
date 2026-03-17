@@ -9,7 +9,7 @@ static const char AP_HTML[] PROGMEM = R"=====(
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>The Amazing Watch</title>
+<title>NeoTick</title>
 <style>
 :root{--bg:#0f0f23;--card:#1a1a2e;--accent:#44d9e1;--accent2:#6e7dff;--text:#e0e0e0;--text2:#999;--btn:#2d2d44}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -43,7 +43,7 @@ input:focus{border-color:var(--accent);outline:none}
 </head>
 <body>
 <div class="hdr">
-  <h1>The Amazing Watch</h1>
+  <h1>NeoTick</h1>
   <div class="sub">By Udi & Noam Shorer</div>
 </div>
 <div class="wrap">
@@ -100,7 +100,7 @@ input:focus{border-color:var(--accent);outline:none}
   </div>
 
   <div class="foot">
-    The Amazing Watch v3.0 &middot; <a href="https://www.instagram.com/ai.garage_" target="_blank">&#x05E2;&#x05E7;&#x05D1;&#x05D5; &#x05D0;&#x05D7;&#x05E8;&#x05D9;&#x05E0;&#x05D5; &#x05D1;&#x05D0;&#x05D9;&#x05E0;&#x05E1;&#x05D8;&#x05D2;&#x05E8;&#x05DD;</a>
+    NeoTick v3.0 &middot; <a href="https://www.instagram.com/ai.garage_" target="_blank">&#x05E2;&#x05E7;&#x05D1;&#x05D5; &#x05D0;&#x05D7;&#x05E8;&#x05D9;&#x05E0;&#x05D5; &#x05D1;&#x05D0;&#x05D9;&#x05E0;&#x05E1;&#x05D8;&#x05D2;&#x05E8;&#x05DD;</a>
   </div>
 </div>
 
@@ -121,7 +121,7 @@ static const char AP_DONE_HTML[] PROGMEM = R"=====(
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>The Amazing Watch</title>
+<title>NeoTick</title>
 <style>
 :root{--bg:#0f0f23;--accent:#44d9e1;--accent2:#6e7dff}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -135,8 +135,8 @@ p{font-size:18px;color:#999;margin-top:12px;line-height:1.6}
 <body>
 <div class="check">&#10003;</div>
 <h1>Wi-Fi Configured!</h1>
-<p>The watch will now connect to your network.</p><p style="margin-top:20px;font-size:16px;color:#e0e0e0">To access the control panel, open:<br><strong style="font-size:20px;color:var(--accent)">http://amazingwatch.local</strong><br><span style="font-size:13px;color:#666">The watch will also show the IP on its display</span></p>
-<div class="foot">The Amazing Watch v3.0</div>
+<p>The watch will now connect to your network.</p><p style="margin-top:20px;font-size:16px;color:#e0e0e0">To access the control panel, open:<br><strong style="font-size:20px;color:var(--accent)">http://neotick.local</strong><br><span style="font-size:13px;color:#666">The watch will also show the IP on its display</span></p>
+<div class="foot">NeoTick v3.0</div>
 </body></html>
 )=====";
 
@@ -192,10 +192,10 @@ void WifiManager::update() {
                 m_state = WIFI_STATE_CONNECTED;
                 m_wifiWasConnected = true;
                 m_justConnectedFlag = true;
-                // Start mDNS so users can access via amazingwatch.local
-                if (MDNS.begin("amazingwatch")) {
+                // Start mDNS so users can access via neotick.local
+                if (MDNS.begin("neotick")) {
                     MDNS.addService("http", "tcp", 80);
-                    Serial.println("mDNS: http://amazingwatch.local");
+                    Serial.println("mDNS: http://neotick.local");
                 }
                 Serial.printf("WiFi connected! IP: %s\n", WiFi.localIP().toString().c_str());
             } else if (now - m_connectStartTime > WIFI_CONNECT_TIMEOUT_MS) {
@@ -238,7 +238,7 @@ void WifiManager::update() {
                 m_state = WIFI_STATE_CONNECTED;
                 m_wifiWasConnected = true;
                 m_justConnectedFlag = true;
-                if (MDNS.begin("amazingwatch")) { MDNS.addService("http", "tcp", 80); }
+                if (MDNS.begin("neotick")) { MDNS.addService("http", "tcp", 80); }
             }
             // Check if user submitted new credentials via portal
             else if (m_apCredsReceived) {

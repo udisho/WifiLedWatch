@@ -441,6 +441,23 @@ void LedDisplay::showCrazy() {
     safeShow();
 }
 
+void LedDisplay::showRainbowWave() {
+    // Smooth gradient: full rainbow spread across all 116 LEDs
+    // Each LED is ~2.2 hue steps from its neighbor (256/116)
+    // offset increments slowly for the "snake" movement
+    static uint16_t offset = 0;
+    offset += 1;  // slow crawl
+    for (int i = 0; i < TOTAL_LEDS; i++) {
+        if ((i % NUM_LEDS_PER_DIGIT) == WIRING_ONLY_LED) continue;
+        if (m_leds[i]) {
+            // Map LED index to a smooth hue: spread 256 across TOTAL_LEDS
+            uint8_t hue = (uint8_t)(offset + (i * 256UL / TOTAL_LEDS));
+            m_leds[i] = CHSV(hue, 255, 255);
+        }
+    }
+    safeShow();
+}
+
 void LedDisplay::setColor(CRGB color) {
     m_color = color;
     for (int i = 0; i < COLOR_COUNT; i++) if (COLOR_TABLE[i].color == color) { m_colorIndex = i; return; }

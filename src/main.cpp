@@ -18,7 +18,6 @@ unsigned long lastDisplayUpdate = 0;
 unsigned long lastColonToggle = 0;
 bool colonState = false;
 int lastClockDisplay = -1;
-unsigned long lastMessageScroll = 0;
 unsigned long lastDateShow = 0;
 unsigned long lastBirthdayCheck = 0;
 int lastBirthdayHour = -1;
@@ -30,6 +29,19 @@ int lastBirthdayHour = -1;
 
 // Colon LED helper
 void updateColonLED(unsigned long now, bool wifiLost) {
+    // Check if colon LEDs should be off (user disabled or night shift active)
+    bool nightActive = false;
+    if (settings.nightShiftEnabled && timeManager.isTimeSynced()) {
+        int h = timeManager.getHours();
+        if (settings.nightShiftStartHour > settings.nightShiftEndHour)
+            nightActive = (h >= settings.nightShiftStartHour || h < settings.nightShiftEndHour);
+        else
+            nightActive = (h >= settings.nightShiftStartHour && h < settings.nightShiftEndHour);
+    }
+    if (!settings.colonLedsEnabled || nightActive) {
+        digitalWrite(COLON_LED_PIN, LOW);
+        return;
+    }
     unsigned long blinkRate = wifiLost ? COLON_BLINK_FAST_MS : COLON_BLINK_NORMAL_MS;
     if (now - lastColonToggle >= blinkRate) {
         lastColonToggle = now;
@@ -38,13 +50,22 @@ void updateColonLED(unsigned long now, bool wifiLost) {
     }
 }
 
+uint8_t buzzVol() { return settings.buzzerLevel == 1 ? 40 : 128; } // low=40, high=128
+
 void playBuzzer() {
-    ledcWriteTone(0, 1000); delay(200);
-    ledcWriteTone(0, 0); delay(100);
-    ledcWriteTone(0, 1500); delay(200);
-    ledcWriteTone(0, 0); delay(100);
-    ledcWriteTone(0, 2000); delay(400);
-    ledcWriteTone(0, 0);
+    uint8_t v = buzzVol();
+    ledcWriteTone(0, 1000); ledcWrite(0, v); delay(200);
+    ledcWrite(0, 0); delay(100);
+    ledcWriteTone(0, 1500); ledcWrite(0, v); delay(200);
+    ledcWrite(0, 0); delay(100);
+    ledcWriteTone(0, 2000); ledcWrite(0, v); delay(400);
+    ledcWrite(0, 0);
+}
+
+void playPhaseBeep(bool isWork) {
+    uint8_t v = buzzVol();
+    ledcWriteTone(0, isWork ? 2000 : 800); ledcWrite(0, v); delay(150);
+    ledcWrite(0, 0);
 }
 
 CRGB getSunriseColor(int hour) {
@@ -66,8 +87,9 @@ void setup() {
     ledDisplay.begin();
     ledDisplay.setBrightness(settings.brightness);
     // Buzzer setup
+    ledcSetup(0, 1000, 8);
     ledcAttachPin(BUZZER_PIN, 0);
-    ledcSetup(0, 2000, 8);
+    ledcWrite(0, 0);  // silence immediately
     if (settings.colorIndex >= 0) ledDisplay.setColorByIndex(settings.colorIndex);
     else ledDisplay.setColor(CRGB(settings.customR, settings.customG, settings.customB));
 
@@ -96,7 +118,7 @@ void loop() {
         // Show IP on LEDs after services are up
         ledDisplay.showIP(wifiManager.getIP().c_str());
 
-        Serial.printf("Access GUI at: http://%s or http://amazingwatch.local\n", wifiManager.getIP().c_str());
+        Serial.printf("Access GUI at: http://%s or http://neotick.local\n", wifiManager.getIP().c_str());
     }
 
     // Scroll "CONN" while waiting for WiFi
@@ -116,6 +138,11 @@ void loop() {
     updateColonLED(now, wifiManager.isWifiLost());
 
     // Animation from GUI
+    // Buzzer test from GUI
+    if (webUI.shouldTestBuzzer()) {
+        playBuzzer();
+    }
+
     if (webUI.shouldRunAnimation()) {
         webUI.setAnimating(true);
         ledDisplay.runCascadeAnimation();
@@ -133,7 +160,7 @@ void loop() {
         doneStartTime = now;
         buzzerPlayed = false;
     }
-    if (isDone && !buzzerPlayed && settings.buzzerEnabled) {
+    if (isDone && !buzzerPlayed && settings.buzzerLevel) {
         buzzerPlayed = true;
         playBuzzer();
     }
@@ -147,9 +174,12 @@ void loop() {
     }
     if (!isDone) doneStartTime = 0;
 
-    // Helper: show number on LEDs and mirror to GUI
+    // Helper: show number on LEDs, apply color mode, mirror to GUI
     auto showAndMirror = [&](int val) {
         ledDisplay.showNumber(val);
+        // Immediately apply color mode overlay after rendering digits
+        if (settings.colorMode == 2) ledDisplay.showCrazy();
+        else if (settings.colorMode == 3) ledDisplay.showRainbowWave();
         webUI.setDisplayValue(val);
         webUI.setDisplayBlank(false);
     };
@@ -172,10 +202,10 @@ void loop() {
         case MODE_CLOCK: {
             if (settings.gymModeEnabled) {
                 ledDisplay.setOverrideColor(CRGB::White);
-            } else if (settings.sunriseColorEnabled) {
+            } else if (settings.sunriseColorEnabled && settings.colorMode == 0) {
                 ledDisplay.setOverrideColor(getSunriseColor(timeManager.getHours()));
-            } else {
-                ledDisplay.clearOverrideColor();
+            } else if (settings.colorMode == 0) {
+                ledDisplay.clearOverrideColor();  // only clear if static color mode
             }
             if (now - lastDisplayUpdate >= CLOCK_REFRESH_MS) {
                 lastDisplayUpdate = now;
@@ -232,27 +262,11 @@ void loop() {
             break;
         }
 
-        case MODE_CRAZY: {
-            if (now - lastDisplayUpdate >= 150) {
-                lastDisplayUpdate = now;
-                // Each LED gets its own random color — show time digits but each LED is unique
-                int display;
-                if (settings.clockShowMMSS)
-                    display = timeManager.getMinutes() * 100 + timeManager.getSeconds();
-                else
-                    display = timeManager.get4Digit();
-                // First render the time digits normally (sets which LEDs are on)
-                ledDisplay.clearOverrideColor();
-                ledDisplay.showNumber(display);
-                // Then colorize each lit LED individually with random colors
-                ledDisplay.showCrazy();
-                webUI.setDisplayValue(display);
-                webUI.setDisplayBlank(false);
-            }
-            break;
-        }
-
         case MODE_TABATA: {
+            // Buzz on work/rest phase change
+            if (settings.buzzerLevel && webUI.tabataPhaseChanged()) {
+                playPhaseBeep(webUI.isTabataWorkPhase());
+            }
             if (now - lastDisplayUpdate >= TABATA_REFRESH_MS) {
                 lastDisplayUpdate = now;
                 const TabataSettings& tb = webUI.getTabataSettings();
@@ -273,22 +287,6 @@ void loop() {
                     showAndMirror((tb.workSec / 60) * 100 + (tb.workSec % 60));
                     if (isPaused) { ledDisplay.pulseBrightness(); }
                 }
-            }
-            break;
-        }
-
-        case MODE_RAINBOW: {
-            if (now - lastDisplayUpdate >= 150) {
-                lastDisplayUpdate = now;
-                static uint8_t rainbowHue = 0;
-                ledDisplay.setOverrideColor(CHSV(rainbowHue, 255, 255));
-                rainbowHue += 1;
-                int display;
-                if (settings.clockShowMMSS)
-                    display = timeManager.getMinutes() * 100 + timeManager.getSeconds();
-                else
-                    display = timeManager.get4Digit();
-                showAndMirror(display);
             }
             break;
         }
@@ -315,25 +313,67 @@ void loop() {
         }
     }
 
-    // Night shift: auto-adjust brightness based on time
-    if (settings.nightShiftEnabled && !settings.gymModeEnabled) {
-        int h = timeManager.getHours();
-        bool isNight;
-        if (settings.nightShiftStartHour > settings.nightShiftEndHour) {
-            isNight = (h >= settings.nightShiftStartHour || h < settings.nightShiftEndHour);
-        } else {
-            isNight = (h >= settings.nightShiftStartHour && h < settings.nightShiftEndHour);
-        }
-        static bool wasNight = false;
-        if (isNight != wasNight) {
-            wasNight = isNight;
-            ledDisplay.setBrightness(isNight ? settings.nightShiftBrightness : settings.brightness);
+    // Rainbow color mode: slow hue cycling (crazy/wave handled in showAndMirror)
+    if (settings.colorMode == 1 && !settings.gymModeEnabled) {
+        static unsigned long lastRainbowUpdate = 0;
+        if (now - lastRainbowUpdate >= 80) {  // slower rainbow
+            lastRainbowUpdate = now;
+            static uint8_t rainbowHue = 0;
+            rainbowHue += 1;
+            ledDisplay.setOverrideColor(CHSV(rainbowHue, 255, 255));
         }
     }
 
-    // Gym mode: override brightness
-    if (settings.gymModeEnabled) {
-        ledDisplay.setBrightness(MAX_BRIGHTNESS);
+    // Brightness management: gym > night shift > normal (only update on change)
+    {
+        static uint8_t lastAppliedBrightness = 0;
+        bool isNight = false;
+        if (settings.nightShiftEnabled) {
+            int h = timeManager.getHours();
+            if (settings.nightShiftStartHour > settings.nightShiftEndHour)
+                isNight = (h >= settings.nightShiftStartHour || h < settings.nightShiftEndHour);
+            else
+                isNight = (h >= settings.nightShiftStartHour && h < settings.nightShiftEndHour);
+        }
+        uint8_t targetBright;
+        if (settings.gymModeEnabled) targetBright = MAX_BRIGHTNESS;
+        else if (isNight) targetBright = settings.nightShiftBrightness;
+        else targetBright = settings.brightness;
+
+        if (targetBright != lastAppliedBrightness) {
+            lastAppliedBrightness = targetBright;
+            ledDisplay.setBrightness(targetBright);
+        }
+    }
+
+    // Clockwork buzzer: chime on the hour (number of times = hour)
+    if (settings.clockworkBuzzer && settings.buzzerLevel > 0 && mode == MODE_CLOCK && timeManager.isTimeSynced()) {
+        static int lastChimeHour = -1;
+        int h = timeManager.getHours();
+        int m = timeManager.getMinutes();
+        if (m == 0 && h != lastChimeHour) {
+            // Check night shift — silence during night
+            bool isNight = false;
+            if (settings.nightShiftEnabled) {
+                if (settings.nightShiftStartHour > settings.nightShiftEndHour)
+                    isNight = (h >= settings.nightShiftStartHour || h < settings.nightShiftEndHour);
+                else
+                    isNight = (h >= settings.nightShiftStartHour && h < settings.nightShiftEndHour);
+            }
+            if (!isNight) {
+                lastChimeHour = h;
+                int chimes = h % 12;
+                if (chimes == 0) chimes = 12;
+                uint8_t v = buzzVol();
+                for (int i = 0; i < chimes; i++) {
+                    ledcWriteTone(0, 1200); ledcWrite(0, v); delay(120);
+                    ledcWrite(0, 0); delay(180);
+                }
+            } else {
+                lastChimeHour = h;  // skip but mark so we don't retry
+            }
+        }
+        if (m != 0) lastChimeHour = -1;  // reset for next hour
     }
 
     // Date display (only in clock mode)
@@ -348,16 +388,6 @@ void loop() {
             digitalWrite(COLON_LED_PIN, HIGH);
             delay(2000);
             digitalWrite(COLON_LED_PIN, LOW);
-            lastClockDisplay = -1;
-        }
-    }
-
-    // Custom scrolling message
-    if (mode == MODE_CLOCK && settings.messageEnabled && settings.customMessage[0] != 0) {
-        unsigned long msgIv = (unsigned long)settings.messageIntervalMin * 60000UL;
-        if (msgIv > 0 && now - lastMessageScroll >= msgIv) {
-            lastMessageScroll = now;
-            ledDisplay.scrollText(settings.customMessage, 300);
             lastClockDisplay = -1;
         }
     }

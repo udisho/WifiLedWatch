@@ -42,19 +42,20 @@ struct WatchSettings {
     TabataSettings tabata;
     // Sunrise color shift
     bool sunriseColorEnabled = false;
-    // Custom scrolling message
-    char customMessage[51] = {0};
-    uint16_t messageIntervalMin = 60;
-    bool messageEnabled = false;
     // Date display
     bool showDateEnabled = false;
     uint8_t showDateIntervalSec = 30;
-    // Buzzer
-    bool buzzerEnabled = false;
+    // Colon LEDs
+    bool colonLedsEnabled = true;
+    // Buzzer: 0=off, 1=low, 2=high
+    uint8_t buzzerLevel = 2;
+    bool clockworkBuzzer = false;  // chime on the hour
     // Gym mode
     bool gymModeEnabled = false;
     // Pomodoro intervals
     uint8_t pomodoroIntervals = POMODORO_INTERVALS;
+    // Color mode: 0=static, 1=rainbow, 2=crazy, 3=rainbow_wave
+    uint8_t colorMode = 0;
     // Birthday count (actual data in NVS)
     uint8_t birthdayCount = 0;
 };
@@ -73,9 +74,8 @@ public:
     void saveTabata(const TabataSettings& tabata);
     void saveNightShift(bool enabled, uint8_t startH, uint8_t endH, uint8_t bright);
     void saveSunriseColor(bool enabled);
-    void saveCustomMessage(const char* msg, uint16_t intervalMin, bool enabled);
     void saveDateDisplay(bool enabled, uint8_t intervalSec);
-    void saveBuzzer(bool enabled);
+    void saveBuzzer(int level);
     void saveGymMode(bool enabled);
     void savePomodoroIntervals(uint8_t intervals);
     void saveBirthday(int index, const Birthday& bday);

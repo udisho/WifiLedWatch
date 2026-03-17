@@ -17,7 +17,7 @@
 #define MAX_BRIGHTNESS      200
 
 // === WiFi ===
-#define AP_SSID             "The Amazing Wifi Watch"
+#define AP_SSID             "NeoTick"
 #define WIFI_CONNECT_TIMEOUT_MS  10000
 #define WIFI_RECONNECT_INTERVAL  30000
 
@@ -39,8 +39,6 @@ enum DisplayMode {
     MODE_STOPWATCH,
     MODE_TIMER,
     MODE_TABATA,
-    MODE_CRAZY,
-    MODE_RAINBOW,
     MODE_POMODORO
 };
 
