@@ -18,7 +18,7 @@ static const unsigned int DIGIT_PATTERNS[PAT_COUNT][28] = {
     // 10-16: legacy CONN chars
     {  8,  9, 10, 11, 12, 13, 14, 15, 17, 18, 19, 20, 21, 22, 23, 24, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED }, // C (10)
     {  0,  1,  2,  3, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED }, // O (11) - also used for D(0) display
-    {  0,  1,  2,  3, 17, 18, 19, 20, 25, 26, 27, 28, 15, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED }, // N (12)
+    {  0,  1,  2,  3, 17, 18, 19, 20, 25, 26, 27, 28, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED }, // N (12)
     {  8,  9, 10, 11, 12, 13, 14, 15,  0,  1,  2,  3, 17, 18, 19, 20, 21, 22, 23, 24, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED }, // E (13)
     {  0,  1,  2,  3, 14, 15, 17, 18, 19, 20, 21, 22, 23, 24, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED }, // t (14)
     {  4,  5,  6,  7, 28, 27, 26, 25, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED }, // I (15)
@@ -102,9 +102,15 @@ void LedDisplay::showOneDigit(int digitPos, int charIndex) {
     }
 }
 
-void LedDisplay::showNumber(int number) {
+void LedDisplay::renderNumber(int number) {
     fill_solid(m_leds, TOTAL_LEDS, CRGB::Black);
     for (int i = NUM_DIGITS - 1; i >= 0; --i) { showOneDigit(i, number % 10); number /= 10; }
+}
+
+void LedDisplay::forceShow() { safeShow(); }
+
+void LedDisplay::showNumber(int number) {
+    renderNumber(number);
     safeShow();
 }
 
@@ -142,49 +148,87 @@ void LedDisplay::showNumberAnimated(int number) {
     m_lastDisplayed = number;
 }
 
-void LedDisplay::showNumberFadeAnimated(int number) {
+void LedDisplay::showNumberFadeAnimated(int number, bool allDigits) {
     int nw[NUM_DIGITS], ol[NUM_DIGITS];
     int t = number;
     for (int i = NUM_DIGITS - 1; i >= 0; --i) { nw[i] = t % 10; t /= 10; }
     t = m_lastDisplayed;
     for (int i = NUM_DIGITS - 1; i >= 0; --i) { ol[i] = t % 10; t /= 10; }
 
+    bool changed[NUM_DIGITS] = {};
     bool any = false;
-    for (int i = 0; i < NUM_DIGITS; i++) if (nw[i] != ol[i]) any = true;
+    for (int i = 0; i < NUM_DIGITS; i++) {
+        changed[i] = allDigits || (nw[i] != ol[i]);
+        if (changed[i]) any = true;
+    }
 
     if (!any || m_lastDisplayed < 0) {
-        fill_solid(m_leds, TOTAL_LEDS, CRGB::Black);
-        for (int i = 0; i < NUM_DIGITS; i++) showOneDigit(i, nw[i]);
+        renderNumber(number);
         safeShow();
         m_lastDisplayed = number;
         return;
     }
 
-    // Fade out: dim from current brightness down to 0
-    uint8_t origBright = m_brightness;
-    for (int b = origBright; b >= 0; b -= 8) {
-        if (b < 0) b = 0;
-        FastLED.setBrightness(b);
-        safeShow();
-        delay(6);
-        if (b == 0) break;
-    }
-    FastLED.setBrightness(0);
-    safeShow();
+    CRGB c = activeColor();
 
-    // Switch digits while dark
-    fill_solid(m_leds, TOTAL_LEDS, CRGB::Black);
-    for (int i = 0; i < NUM_DIGITS; i++) showOneDigit(i, nw[i]);
-
-    // Fade in: dim from 0 up to original brightness
-    for (int b = 0; b <= origBright; b += 8) {
-        if (b > origBright) b = origBright;
-        FastLED.setBrightness(b);
+    // Fade out ONLY changed digits (darken their LEDs individually)
+    for (int step = 8; step >= 0; step--) {
+        for (int d = 0; d < NUM_DIGITS; d++) {
+            if (!changed[d]) continue;
+            int offset = d * NUM_LEDS_PER_DIGIT;
+            for (int led = 0; led < NUM_LEDS_PER_DIGIT; led++) {
+                if (led == WIRING_ONLY_LED) continue;
+                m_leds[offset + led].fadeToBlackBy(28);
+            }
+        }
         safeShow();
-        delay(6);
-        if (b >= origBright) break;
+        delay(5);
     }
-    FastLED.setBrightness(origBright);
+
+    // Black out changed digits, render new digits
+    for (int d = 0; d < NUM_DIGITS; d++) {
+        if (!changed[d]) continue;
+        int offset = d * NUM_LEDS_PER_DIGIT;
+        for (int led = 0; led < NUM_LEDS_PER_DIGIT; led++) {
+            if (led == WIRING_ONLY_LED) continue;
+            m_leds[offset + led] = CRGB::Black;
+        }
+        showOneDigit(d, nw[d]);
+    }
+
+    // Fade in changed digits (brighten from dim to full)
+    // First dim the new digits
+    for (int d = 0; d < NUM_DIGITS; d++) {
+        if (!changed[d]) continue;
+        int offset = d * NUM_LEDS_PER_DIGIT;
+        for (int led = 0; led < NUM_LEDS_PER_DIGIT; led++) {
+            if (led == WIRING_ONLY_LED) continue;
+            m_leds[offset + led].fadeToBlackBy(240);
+        }
+    }
+
+    for (int step = 0; step < 9; step++) {
+        for (int d = 0; d < NUM_DIGITS; d++) {
+            if (!changed[d]) continue;
+            int offset = d * NUM_LEDS_PER_DIGIT;
+            // Re-render at increasing brightness
+            for (int led = 0; led < NUM_LEDS_PER_DIGIT; led++) {
+                if (led == WIRING_ONLY_LED) continue;
+                m_leds[offset + led] = CRGB::Black;
+            }
+            showOneDigit(d, nw[d]);
+            uint8_t fade = 255 - (step * 28);
+            for (int led = 0; led < NUM_LEDS_PER_DIGIT; led++) {
+                if (led == WIRING_ONLY_LED) continue;
+                m_leds[offset + led].fadeToBlackBy(fade);
+            }
+        }
+        safeShow();
+        delay(5);
+    }
+
+    // Final clean render
+    renderNumber(number);
     safeShow();
     m_lastDisplayed = number;
 }
@@ -430,32 +474,26 @@ void LedDisplay::scrollText(const char* text, int delayMs) {
 }
 
 void LedDisplay::showCrazy() {
-    // Randomize color of each LED that is currently ON (non-black)
-    // This preserves digit shapes but gives each LED its own random color
+    // Randomize color of each lit LED — caller must call safeShow() after
     for (int i = 0; i < TOTAL_LEDS; i++) {
         if ((i % NUM_LEDS_PER_DIGIT) == WIRING_ONLY_LED) continue;
-        if (m_leds[i]) {  // LED is on
-            m_leds[i] = CHSV(random(256), 255, 255);
-        }
+        if (m_leds[i]) m_leds[i] = CHSV(random(256), 255, 255);
     }
-    safeShow();
 }
 
 void LedDisplay::showRainbowWave() {
-    // Smooth gradient: full rainbow spread across all 116 LEDs
-    // Each LED is ~2.2 hue steps from its neighbor (256/116)
-    // offset increments slowly for the "snake" movement
-    static uint16_t offset = 0;
-    offset += 1;  // slow crawl
+    // Each digit gets a slightly different hue, creating a wave across digits
+    static uint8_t offset = 0;
+    offset += 1;
     for (int i = 0; i < TOTAL_LEDS; i++) {
         if ((i % NUM_LEDS_PER_DIGIT) == WIRING_ONLY_LED) continue;
         if (m_leds[i]) {
-            // Map LED index to a smooth hue: spread 256 across TOTAL_LEDS
-            uint8_t hue = (uint8_t)(offset + (i * 256UL / TOTAL_LEDS));
+            // Each digit gets its own hue (64 hue units apart = smooth color wheel rotation)
+            int digit = i / NUM_LEDS_PER_DIGIT;
+            uint8_t hue = offset + (uint8_t)(digit * 64);
             m_leds[i] = CHSV(hue, 255, 255);
         }
     }
-    safeShow();
 }
 
 void LedDisplay::setColor(CRGB color) {

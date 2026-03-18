@@ -29,8 +29,10 @@ public:
     void begin();
 
     void showNumber(int number);
+    void renderNumber(int number);  // fill LED buffer without showing
+    void forceShow();               // explicit safeShow()
     void showNumberAnimated(int number);
-    void showNumberFadeAnimated(int number);
+    void showNumberFadeAnimated(int number, bool allDigits = false);
     void showCONN();
     void scrollCONN();  // one frame of scrolling "CONN" right-to-left
     void showIP(const char* ip);
