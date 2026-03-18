@@ -49,8 +49,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .btn-primary{background:var(--accent);color:#000}
 .btn-danger{background:var(--danger);color:#fff}
 .btn-secondary{background:var(--btn);color:var(--text)}
-.colors{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:10px}
-.color-dot{width:100%;aspect-ratio:1;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:.15s;touch-action:manipulation}
+.colors{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:10px;max-width:320px}
+.color-dot{width:100%;max-width:44px;aspect-ratio:1;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:.15s;touch-action:manipulation}
 .color-dot:hover,.color-dot.active{border-color:#fff;transform:scale(1.15)}
 .slider-row{display:flex;align-items:center;gap:12px;margin-top:12px}
 .slider-row label{min-width:70px;font-size:13px;color:var(--text2)}
@@ -118,6 +118,8 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
 .sec-hdr.open .arr{transform:rotate(180deg)}
 .sec-body{display:none;background:var(--card);border-radius:0 0 14px 14px;padding:0 18px 18px;margin-top:-12px;margin-bottom:14px}
 .sec-body.show{display:block}
+.toast{position:fixed;top:50px;left:50%;transform:translateX(-50%);background:rgba(68,217,225,.9);color:#000;padding:6px 18px;border-radius:20px;font-size:12px;font-weight:700;z-index:99;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
 </style>
 </head>
 <body>
@@ -269,10 +271,6 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
         <label><input type="radio" name="clrMode" value="3" onchange="send({cmd:'colormode',value:3})">Wave</label>
       </div>
     </div>
-    <div style="margin-top:14px;padding-top:12px;border-top:1px solid #222">
-      <div class="toggle-row"><span>Sunrise auto-color</span><label class="toggle"><input type="checkbox" id="sunToggle" onchange="send({cmd:'sunrise',enabled:this.checked})"><span class="slider"></span></label></div>
-      <div style="font-size:11px;color:var(--text2);margin-top:2px">Overrides color choice — changes automatically by time of day</div>
-    </div>
   </div>
 
   <div class="sec-hdr" onclick="togSec(this)"><h3>Timezone</h3><span class="arr">&#9660;</span></div>
@@ -352,6 +350,7 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
     <div class="status">v3.0 &middot; NeoTick &middot; <a href="https://www.instagram.com/ai.garage_" target="_blank" style="color:var(--accent);text-decoration:none">The AI Garage</a></div>
   </div>
 </div>
+<div class="toast" id="toast">Saving...</div>
 
 <script>
 const C=[
@@ -378,7 +377,7 @@ const TZ=[
   ["UTC+9:30 Adelaide",34200],["UTC+10 Sydney",36000],["UTC+11 Solomon",39600],
   ["UTC+12 Auckland",43200]
 ];
-let ws,st={},firstState=true,wheelsInit=false,lastMode=-1,nsInit=false;
+let ws,st={},firstState=true,wheelsInit=false,lastMode=-1,saving=false;
 const SEG=[0x7E,0x30,0x6D,0x79,0x33,0x5B,0x5F,0x70,0x7F,0x7B];
 const SEGS='abcdefg';
 function initSegs(){for(let i=0;i<4;i++){const el=document.getElementById('sd'+i);el.innerHTML='';SEGS.split('').forEach(s=>{const sp=document.createElement('span');sp.className=s;el.appendChild(sp);});}}
@@ -417,7 +416,7 @@ function init(){
   const g=document.getElementById('colorGrid');
   C.forEach((c,i)=>{const d=document.createElement('div');d.className='color-dot';d.style.background=c.c;d.title=c.n;d.onclick=()=>send({cmd:'color',index:i});g.appendChild(d);});
   const bs=document.getElementById('brightSlider');
-  bs.oninput=()=>document.getElementById('brightVal').textContent=bs.value;
+  bs.oninput=()=>{document.getElementById('brightVal').textContent=bs.value;uiLockT=Date.now();};
   bs.onchange=()=>send({cmd:'brightness',value:+bs.value});
   const tz=document.getElementById('tzSelect');
   TZ.forEach(([l,o])=>{const op=document.createElement('option');op.value=o;op.textContent=l;tz.appendChild(op);});
@@ -433,11 +432,12 @@ function init(){
 function connectWS(){
   const h=location.hostname||'4.3.2.1';
   ws=new WebSocket('ws://'+h+'/ws');
-  ws.onmessage=e=>{try{st=JSON.parse(e.data);updateUI();}catch(x){}};
+  ws.onmessage=e=>{try{st=JSON.parse(e.data);if(st.full&&saving){saving=false;document.getElementById('toast').classList.remove('show');}updateUI();}catch(x){}};
   ws.onclose=()=>setTimeout(connectWS,2000);
   ws.onerror=()=>ws.close();
 }
 function send(o){if(ws&&ws.readyState===1)ws.send(JSON.stringify(o));}
+function sendSave(o){saving=true;document.getElementById('toast').classList.add('show');send(o);}
 function togSec(el){el.classList.toggle('open');el.nextElementSibling.classList.toggle('show');}
 function P(n){return String(n).padStart(2,'0');}
 function updateUI(){
@@ -477,9 +477,9 @@ function updateUI(){
   if(st.synced){sd.className='dot on';stx.textContent='NTP OK';}else{sd.className='dot off';stx.textContent='Syncing...';}
   const wd=document.getElementById('wifiDot'),wt=document.getElementById('wifiText');
   if(st.wifiLost){wd.className='dot off';wt.textContent='WiFi Lost';}else{wd.className='dot on';wt.textContent='WiFi OK';}
-  document.querySelectorAll('.color-dot').forEach((d,i)=>d.classList.toggle('active',i===st.colorIdx));
-  if(st.bright!==undefined){document.getElementById('brightSlider').value=st.bright;document.getElementById('brightVal').textContent=st.bright;}
-  if(st.mmss!==undefined){
+  if(st.full)document.querySelectorAll('.color-dot').forEach((d,i)=>d.classList.toggle('active',i===st.colorIdx));
+  if(st.bright!==undefined&&st.full){document.getElementById('brightSlider').value=st.bright;document.getElementById('brightVal').textContent=st.bright;}
+  if(st.mmss!==undefined&&st.full){
     document.getElementById('mmssToggle').checked=st.mmss;
     document.getElementById('fmtLabel').textContent=st.mmss?'MM:SS':'HH:MM';
   }
@@ -523,9 +523,9 @@ function updateUI(){
     document.getElementById('tabReset2').style.display=(!st.tabRun&&(st.tabMs>0||st.tabDone))?'':'none';
     document.getElementById('tabCfg').style.display=st.tabRun?'none':'';
   }
-  if(st.tz!==undefined)document.getElementById('tzSelect').value=st.tz;
-  if(st.dst!==undefined){document.querySelector('input[name=dst][value="'+st.dst+'"]').checked=true;document.getElementById('dstRules').style.display=st.dst==1?'':'none';}
-  if(st.dsFL!==undefined){
+  if(st.tz!==undefined&&st.full)document.getElementById('tzSelect').value=st.tz;
+  if(st.dst!==undefined&&st.full){document.querySelector('input[name=dst][value="'+st.dst+'"]').checked=true;document.getElementById('dstRules').style.display=st.dst==1?'':'none';}
+  if(st.dsFL!==undefined&&st.full){
     document.getElementById('dsFL').value=st.dsFL?'1':'0';document.getElementById('dsDow').value=st.dsDow;
     document.getElementById('dsMon').value=st.dsMon;document.getElementById('dsHour').value=st.dsH;
     document.getElementById('deFL').value=st.deFL?'1':'0';document.getElementById('deDow').value=st.deDow;
@@ -544,8 +544,8 @@ function updateUI(){
     document.getElementById('tabSumInt').textContent=st.tbInt2;
     document.getElementById('tabSummary').style.display=(st.tabRun||st.tabDone)?'':'none';
   }
-  if(st.animTr!==undefined){document.getElementById('animToggle').checked=st.animTr;}
-  if(st.clrMode!==undefined){var r=document.querySelector('input[name=clrMode][value="'+st.clrMode+'"]');if(r)r.checked=true;}
+  if(st.animTr!==undefined&&st.full){document.getElementById('animToggle').checked=st.animTr;}
+  if(st.clrMode!==undefined&&st.full){var r=document.querySelector('input[name=clrMode][value="'+st.clrMode+'"]');if(r)r.checked=true;}
   if(st.pomMs!==undefined){
     var ms=Math.max(0,st.pomMs),s=Math.ceil(ms/1000),m=Math.floor(s/60);
     document.getElementById('pomDisp').textContent=P(m)+':'+P(s%60);
@@ -558,19 +558,17 @@ function updateUI(){
     if(st.pomRun){b.textContent='Stop';b.className='btn btn-danger';}else{b.textContent='Start';b.className='btn btn-primary';}
     document.getElementById('pomReset2').style.display=(!st.pomRun&&(st.pomMs>0||st.pomDone))?'':'none';
   }
-  if(st.pomTotal!==undefined){document.getElementById('pomIntSlider').value=st.pomTotal;document.getElementById('pomIntVal').textContent=st.pomTotal;}
+  if(st.pomTotal!==undefined&&st.full){document.getElementById('pomIntSlider').value=st.pomTotal;document.getElementById('pomIntVal').textContent=st.pomTotal;}
   document.getElementById('pomIntSlider').oninput=function(){document.getElementById('pomIntVal').textContent=this.value;};
-  if(st.sunClr!==undefined)document.getElementById('sunToggle').checked=st.sunClr;
-  if(st.dateEn!==undefined){document.getElementById('dateToggle').checked=st.dateEn;document.getElementById('dateIntSlider').value=st.dateInt||30;document.getElementById('dateIntVal').textContent=st.dateInt||30;}
+  if(st.dateEn!==undefined&&st.full){document.getElementById('dateToggle').checked=st.dateEn;document.getElementById('dateIntSlider').value=st.dateInt||30;document.getElementById('dateIntVal').textContent=st.dateInt||30;}
   document.getElementById('dateIntSlider').oninput=function(){document.getElementById('dateIntVal').textContent=this.value;};
-  if(st.colonEn!==undefined)document.getElementById('colonToggle').checked=st.colonEn;
-  if(st.buzzLv!==undefined){var r=document.querySelector('input[name=buzz][value="'+st.buzzLv+'"]');if(r)r.checked=true;}
-  if(st.cwBuzz!==undefined)document.getElementById('cwToggle').checked=st.cwBuzz;
+  if(st.colonEn!==undefined&&st.full)document.getElementById('colonToggle').checked=st.colonEn;
+  if(st.buzzLv!==undefined&&st.full){var r=document.querySelector('input[name=buzz][value="'+st.buzzLv+'"]');if(r)r.checked=true;}
+  if(st.cwBuzz!==undefined&&st.full)document.getElementById('cwToggle').checked=st.cwBuzz;
   if(st.rssi!==undefined){var r=st.rssi,q=r>-50?'Excellent':r>-65?'Good':r>-75?'Weak':'Poor',cl=r>-50?'var(--success)':r>-65?'var(--accent)':r>-75?'#FFA500':'var(--danger)';document.getElementById('rssiLine').innerHTML='Signal: <strong style="color:'+cl+'">'+r+' dBm ('+q+')</strong>';}
   if(st.bdays){var bl=document.getElementById('bdayList');bl.innerHTML='';st.bdays.forEach(function(b,i){bl.innerHTML+='<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:13px"><span>'+b.n+' - '+P(b.d)+'/'+P(b.m)+'</span><button class="btn btn-danger" style="padding:4px 10px;font-size:11px" onclick="delBday('+i+')">X</button></div>';});}
   if(st.tabPresets){var sel=document.getElementById('tabPresetSel');sel.innerHTML='';st.tabPresets.forEach(function(p,i){if(p.n){var o=document.createElement('option');o.value=i;o.textContent=p.n+' ('+p.w+'s/'+p.r+'s)';sel.appendChild(o);}});}
-  if(st.nsEn!==undefined&&!nsInit){
-    nsInit=true;
+  if(st.nsEn!==undefined&&st.full){
     document.getElementById('nsToggle').checked=st.nsEn;
     document.getElementById('nsStart').value=st.nsStart;
     document.getElementById('nsEnd').value=st.nsEnd;
@@ -597,22 +595,22 @@ function tabToggle(){
 
 function saveTabata(){var ws=getWheel('tabWorkMinW')*60+getWheel('tabWorkSecW'),rs=getWheel('tabRestMinW')*60+getWheel('tabRestSecW');send({cmd:'tabata_cfg',work:ws||20,rest:rs||10,intervals:getWheel('tabIntW')||8,workColor:+document.getElementById('tabWC').value,restColor:+document.getElementById('tabRC').value});}
 function toggleAnim(){send({cmd:'animtoggle',value:document.getElementById('animToggle').checked});}
-function setTimezone(){send({cmd:'timezone',value:+document.getElementById('tzSelect').value});}
-function setDST(v){send({cmd:'dst',value:v});}
+function setTimezone(){sendSave({cmd:'timezone',value:+document.getElementById('tzSelect').value});}
+function setDST(v){sendSave({cmd:'dst',value:v});}
 function toggleMMSS(){send({cmd:'clockfmt',mmss:document.getElementById('mmssToggle').checked});}
-function saveDSTRules(){send({cmd:'dst_rules',dsFL:document.getElementById('dsFL').value==='1',dsDow:+document.getElementById('dsDow').value,dsMon:+document.getElementById('dsMon').value,dsH:+document.getElementById('dsHour').value,deFL:document.getElementById('deFL').value==='1',deDow:+document.getElementById('deDow').value,deMon:+document.getElementById('deMon').value,deH:+document.getElementById('deHour').value});}
-function resetDSTIsrael(){send({cmd:'dst_reset_israel'});}
+function saveDSTRules(){sendSave({cmd:'dst_rules',dsFL:document.getElementById('dsFL').value==='1',dsDow:+document.getElementById('dsDow').value,dsMon:+document.getElementById('dsMon').value,dsH:+document.getElementById('dsHour').value,deFL:document.getElementById('deFL').value==='1',deDow:+document.getElementById('deDow').value,deMon:+document.getElementById('deMon').value,deH:+document.getElementById('deHour').value});}
+function resetDSTIsrael(){sendSave({cmd:'dst_reset_israel'});}
 function resetWifi(){if(confirm('Reset WiFi? Watch will restart.'))send({cmd:'resetwifi'});}
 function applyCustomColor(){const h=document.getElementById('customColor').value;send({cmd:'customcolor',r:parseInt(h.substr(1,2),16),g:parseInt(h.substr(3,2),16),b:parseInt(h.substr(5,2),16)});}
-function saveNightShift(){send({cmd:'nightshift',enabled:document.getElementById('nsToggle').checked,start:+document.getElementById('nsStart').value,end:+document.getElementById('nsEnd').value,bright:+document.getElementById('nsBright').value});}
+function saveNightShift(){sendSave({cmd:'nightshift',enabled:document.getElementById('nsToggle').checked,start:+document.getElementById('nsStart').value,end:+document.getElementById('nsEnd').value,bright:+document.getElementById('nsBright').value});}
 function pomToggle(){if(st.pomRun)send({cmd:'pom',action:'stop'});else send({cmd:'pom',action:'start'});}
 function savePomInt(){send({cmd:'pom_cfg',intervals:+document.getElementById('pomIntSlider').value});}
-function saveDate(){send({cmd:'datedisp',enabled:document.getElementById('dateToggle').checked,interval:+document.getElementById('dateIntSlider').value});}
-function addBday(){var n=document.getElementById('bdayName').value,d=+document.getElementById('bdayDay').value,m=+document.getElementById('bdayMon').value;if(n&&d&&m)send({cmd:'bday_add',name:n,day:d,month:m});document.getElementById('bdayName').value='';}
-function delBday(i){send({cmd:'bday_del',index:i});}
-function loadTabPreset(){send({cmd:'tab_preset_load',index:+document.getElementById('tabPresetSel').value});}
-function saveTabPreset(){var n=document.getElementById('tabPresetName').value;if(!n)return;var ws=getWheel('tabWorkMinW')*60+getWheel('tabWorkSecW'),rs=getWheel('tabRestMinW')*60+getWheel('tabRestSecW');send({cmd:'tab_preset_save',name:n,work:ws||20,rest:rs||10,intervals:getWheel('tabIntW')||8});}
-function delTabPreset(){var i=+document.getElementById('tabPresetSel').value;send({cmd:'tab_preset_del',index:i});}
+function saveDate(){sendSave({cmd:'datedisp',enabled:document.getElementById('dateToggle').checked,interval:+document.getElementById('dateIntSlider').value});}
+function addBday(){var n=document.getElementById('bdayName').value,d=+document.getElementById('bdayDay').value,m=+document.getElementById('bdayMon').value;if(n&&d&&m)sendSave({cmd:'bday_add',name:n,day:d,month:m});document.getElementById('bdayName').value='';}
+function delBday(i){sendSave({cmd:'bday_del',index:i});}
+function loadTabPreset(){sendSave({cmd:'tab_preset_load',index:+document.getElementById('tabPresetSel').value});}
+function saveTabPreset(){var n=document.getElementById('tabPresetName').value;if(!n)return;var ws=getWheel('tabWorkMinW')*60+getWheel('tabWorkSecW'),rs=getWheel('tabRestMinW')*60+getWheel('tabRestSecW');sendSave({cmd:'tab_preset_save',name:n,work:ws||20,rest:rs||10,intervals:getWheel('tabIntW')||8});}
+function delTabPreset(){var i=+document.getElementById('tabPresetSel').value;sendSave({cmd:'tab_preset_del',index:i});}
 init();
 </script>
 </body></html>
@@ -740,19 +738,18 @@ void WebUI::handleWebSocketMessage(AsyncWebSocketClient* client, uint8_t* data, 
     else if (cmd == "nightshift") { m_settings->nightShiftEnabled = extractBool(msg, "enabled"); m_settings->nightShiftStartHour = extractInt(msg, "start"); m_settings->nightShiftEndHour = extractInt(msg, "end"); m_settings->nightShiftBrightness = extractInt(msg, "bright"); m_pendingSave = millis(); }
     else if (cmd == "pom") { String a = extractString(msg, "action"); if (a == "start") pomodoroStart(); else if (a == "stop") pomodoroStop(); else if (a == "reset") pomodoroReset(); }
     else if (cmd == "pom_cfg") { int n = extractInt(msg, "intervals"); if (n > 0 && n <= 8) { m_settings->pomodoroIntervals = n; m_pendingSave = millis(); } }
-    else if (cmd == "sunrise") { m_settings->sunriseColorEnabled = extractBool(msg, "enabled"); m_pendingSave = millis(); }
     else if (cmd == "datedisp") { m_settings->showDateEnabled = extractBool(msg, "enabled"); int iv = extractInt(msg, "interval"); if (iv > 0) m_settings->showDateIntervalSec = iv; m_pendingSave = millis(); }
     else if (cmd == "buzzer") { int lv = extractInt(msg, "level"); if (lv >= 0 && lv <= 2) { m_settings->buzzerLevel = lv; m_pendingSave = millis(); } }
     else if (cmd == "buzztest") { m_buzzerTestRequested = true; }
     else if (cmd == "clockwork") { m_settings->clockworkBuzzer = extractBool(msg, "enabled"); m_pendingSave = millis(); }
-    else if (cmd == "gym") { m_settings->gymModeEnabled = extractBool(msg, "enabled"); m_pendingSave = millis(); }
-    else if (cmd == "bday_add") { int idx = m_settings->birthdayCount; if (idx < MAX_BIRTHDAYS) { Birthday b; String n = extractString(msg, "name"); strncpy(b.name, n.c_str(), 15); b.name[15] = 0; b.day = extractInt(msg, "day"); b.month = extractInt(msg, "month"); m_configStore->saveBirthday(idx, b); m_settings->birthdayCount = idx + 1; Preferences p; p.begin("watchsettings", false); p.putUChar("bdCnt", m_settings->birthdayCount); p.end(); } }
-    else if (cmd == "bday_del") { int i = extractInt(msg, "index"); if (i >= 0 && i < m_settings->birthdayCount) { for (int j = i; j < m_settings->birthdayCount - 1; j++) { Birthday b; m_configStore->loadBirthday(j + 1, b); m_configStore->saveBirthday(j, b); } m_settings->birthdayCount--; Birthday empty; m_configStore->saveBirthday(m_settings->birthdayCount, empty); Preferences p; p.begin("watchsettings", false); p.putUChar("bdCnt", m_settings->birthdayCount); p.end(); } }
-    else if (cmd == "tab_preset_save") { String n = extractString(msg, "name"); int w = extractInt(msg, "work"), r = extractInt(msg, "rest"), iv = extractInt(msg, "intervals"); TabataPreset p; strncpy(p.name, n.c_str(), 15); p.name[15] = 0; p.workSec = w; p.restSec = r; p.intervals = iv; for (int i = 0; i < MAX_TABATA_PRESETS; i++) { TabataPreset ex; m_configStore->loadTabataPreset(i, ex); if (ex.name[0] == 0) { m_configStore->saveTabataPreset(i, p); break; } } }
-    else if (cmd == "tab_preset_del") { int i = extractInt(msg, "index"); if (i >= 0 && i < MAX_TABATA_PRESETS) { TabataPreset empty; m_configStore->saveTabataPreset(i, empty); } }
-    else if (cmd == "tab_preset_load") { int i = extractInt(msg, "index"); TabataPreset p; m_configStore->loadTabataPreset(i, p); if (p.name[0]) { m_settings->tabata.workSec = p.workSec; m_settings->tabata.restSec = p.restSec; m_settings->tabata.intervals = p.intervals; m_configStore->saveTabata(m_settings->tabata); tabataReset(); } }
+
+    else if (cmd == "bday_add") { int idx = m_settings->birthdayCount; if (idx < MAX_BIRTHDAYS) { Birthday b; String n = extractString(msg, "name"); strncpy(b.name, n.c_str(), 15); b.name[15] = 0; b.day = extractInt(msg, "day"); b.month = extractInt(msg, "month"); m_configStore->saveBirthday(idx, b); m_settings->birthdayCount = idx + 1; Preferences p; p.begin("watchsettings", false); p.putUChar("bdCnt", m_settings->birthdayCount); p.end(); } if (m_ws) m_ws->textAll(buildStateJSON()); return; }
+    else if (cmd == "bday_del") { int i = extractInt(msg, "index"); if (i >= 0 && i < m_settings->birthdayCount) { for (int j = i; j < m_settings->birthdayCount - 1; j++) { Birthday b; m_configStore->loadBirthday(j + 1, b); m_configStore->saveBirthday(j, b); } m_settings->birthdayCount--; Birthday empty; m_configStore->saveBirthday(m_settings->birthdayCount, empty); Preferences p; p.begin("watchsettings", false); p.putUChar("bdCnt", m_settings->birthdayCount); p.end(); } if (m_ws) m_ws->textAll(buildStateJSON()); return; }
+    else if (cmd == "tab_preset_save") { String n = extractString(msg, "name"); int w = extractInt(msg, "work"), r = extractInt(msg, "rest"), iv = extractInt(msg, "intervals"); TabataPreset p; strncpy(p.name, n.c_str(), 15); p.name[15] = 0; p.workSec = w; p.restSec = r; p.intervals = iv; for (int i = 0; i < MAX_TABATA_PRESETS; i++) { TabataPreset ex; m_configStore->loadTabataPreset(i, ex); if (ex.name[0] == 0) { m_configStore->saveTabataPreset(i, p); break; } } if (m_ws) m_ws->textAll(buildStateJSON()); return; }
+    else if (cmd == "tab_preset_del") { int i = extractInt(msg, "index"); if (i >= 0 && i < MAX_TABATA_PRESETS) { TabataPreset empty; m_configStore->saveTabataPreset(i, empty); } if (m_ws) m_ws->textAll(buildStateJSON()); return; }
+    else if (cmd == "tab_preset_load") { int i = extractInt(msg, "index"); TabataPreset p; m_configStore->loadTabataPreset(i, p); if (p.name[0]) { m_settings->tabata.workSec = p.workSec; m_settings->tabata.restSec = p.restSec; m_settings->tabata.intervals = p.intervals; m_pendingSave = millis(); tabataReset(); } if (m_ws) m_ws->textAll(buildStateJSON()); return; }
     else if (cmd == "resetwifi") { Preferences p; p.begin(NVS_NAMESPACE, false); p.remove("ssid"); p.remove("pass"); p.end(); delay(500); ESP.restart(); }
-    broadcastState();
+    if (m_ws) m_ws->textAll(buildStateJSON());
 }
 
 // ======================== State Broadcast ========================
@@ -785,6 +782,8 @@ String WebUI::buildFastJSON() {
     j += ",\"pomInt\":"; j += m_pomCurrentInterval;
     j += ",\"pomDone\":"; j += m_pomDone ? "true" : "false";
     j += ",\"anim\":"; j += m_animating ? "true" : "false";
+    j += ",\"synced\":"; j += m_timeMgr->isTimeSynced() ? "true" : "false";
+    j += ",\"wifiLost\":"; j += (WiFi.status() != WL_CONNECTED) ? "true" : "false";
     j += "}";
     return j;
 }
@@ -794,10 +793,9 @@ String WebUI::buildStateJSON() {
     String j = buildFastJSON();
     // Remove closing brace and append settings
     j.remove(j.length() - 1);
-    j += ",\"synced\":"; j += m_timeMgr->isTimeSynced() ? "true" : "false";
-    j += ",\"wifiLost\":"; j += (WiFi.status() != WL_CONNECTED) ? "true" : "false";
+    j += ",\"full\":true";
     j += ",\"colorIdx\":"; j += m_display->getColorIndex();
-    j += ",\"bright\":"; j += m_display->getBrightness();
+    j += ",\"bright\":"; j += m_settings->brightness;
     j += ",\"mmss\":"; j += m_settings->clockShowMMSS ? "true" : "false";
     j += ",\"tabTotal\":"; j += m_settings->tabata.intervals;
     j += ",\"tz\":"; j += m_timeMgr->getTimezoneOffset();
@@ -821,13 +819,12 @@ String WebUI::buildStateJSON() {
     j += ",\"nsEnd\":"; j += m_settings->nightShiftEndHour;
     j += ",\"nsBright\":"; j += m_settings->nightShiftBrightness;
     j += ",\"pomTotal\":"; j += m_settings->pomodoroIntervals;
-    j += ",\"sunClr\":"; j += m_settings->sunriseColorEnabled ? "true" : "false";
     j += ",\"dateEn\":"; j += m_settings->showDateEnabled ? "true" : "false";
     j += ",\"dateInt\":"; j += m_settings->showDateIntervalSec;
     j += ",\"colonEn\":"; j += m_settings->colonLedsEnabled ? "true" : "false";
     j += ",\"buzzLv\":"; j += m_settings->buzzerLevel;
     j += ",\"cwBuzz\":"; j += m_settings->clockworkBuzzer ? "true" : "false";
-    j += ",\"gymEn\":"; j += m_settings->gymModeEnabled ? "true" : "false";
+
     j += ",\"clrMode\":"; j += m_settings->colorMode;
     j += ",\"rssi\":"; j += WiFi.RSSI();
     j += ",\"bdays\":[";

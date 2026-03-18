@@ -40,8 +40,6 @@ struct WatchSettings {
     uint8_t nightShiftEndHour = 7;      // 7 AM
     uint8_t nightShiftBrightness = 15;  // very dim at night
     TabataSettings tabata;
-    // Sunrise color shift
-    bool sunriseColorEnabled = false;
     // Date display
     bool showDateEnabled = false;
     uint8_t showDateIntervalSec = 30;
@@ -50,8 +48,7 @@ struct WatchSettings {
     // Buzzer: 0=off, 1=low, 2=high
     uint8_t buzzerLevel = 2;
     bool clockworkBuzzer = false;  // chime on the hour
-    // Gym mode
-    bool gymModeEnabled = false;
+
     // Pomodoro intervals
     uint8_t pomodoroIntervals = POMODORO_INTERVALS;
     // Color mode: 0=static, 1=rainbow, 2=crazy, 3=rainbow_wave
@@ -73,10 +70,9 @@ public:
     void saveDSTRules(const DSTRule& start, const DSTRule& end);
     void saveTabata(const TabataSettings& tabata);
     void saveNightShift(bool enabled, uint8_t startH, uint8_t endH, uint8_t bright);
-    void saveSunriseColor(bool enabled);
     void saveDateDisplay(bool enabled, uint8_t intervalSec);
     void saveBuzzer(int level);
-    void saveGymMode(bool enabled);
+
     void savePomodoroIntervals(uint8_t intervals);
     void saveBirthday(int index, const Birthday& bday);
     void loadBirthday(int index, Birthday& bday);

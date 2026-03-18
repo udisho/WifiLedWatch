@@ -41,13 +41,12 @@ void ConfigStore::load(WatchSettings& s) {
     s.tabata.workColorIdx = prefs.getUChar("tbWC", 1);
     s.tabata.restColorIdx = prefs.getUChar("tbRC", 0);
 
-    s.sunriseColorEnabled = prefs.getBool("sunClr", false);
     s.showDateEnabled     = prefs.getBool("dateEn", false);
     s.showDateIntervalSec = prefs.getUChar("dateInt", 30);
     s.colonLedsEnabled  = prefs.getBool("colonEn", true);
     s.buzzerLevel       = prefs.getUChar("buzzLv", 2);
     s.clockworkBuzzer   = prefs.getBool("cwBuzz", false);
-    s.gymModeEnabled      = prefs.getBool("gymEn", false);
+
     s.pomodoroIntervals   = prefs.getUChar("pomInt", POMODORO_INTERVALS);
     s.colorMode           = prefs.getUChar("clrMode", 0);
     s.birthdayCount       = prefs.getUChar("bdCnt", 0);
@@ -89,13 +88,12 @@ void ConfigStore::save(const WatchSettings& s) {
     prefs.putUChar("tbWC", s.tabata.workColorIdx);
     prefs.putUChar("tbRC", s.tabata.restColorIdx);
 
-    prefs.putBool("sunClr", s.sunriseColorEnabled);
     prefs.putBool("dateEn", s.showDateEnabled);
     prefs.putUChar("dateInt", s.showDateIntervalSec);
     prefs.putBool("colonEn", s.colonLedsEnabled);
     prefs.putUChar("buzzLv", s.buzzerLevel);
     prefs.putBool("cwBuzz", s.clockworkBuzzer);
-    prefs.putBool("gymEn", s.gymModeEnabled);
+
     prefs.putUChar("pomInt", s.pomodoroIntervals);
     prefs.putUChar("clrMode", s.colorMode);
     prefs.putUChar("bdCnt", s.birthdayCount);
@@ -169,12 +167,6 @@ void ConfigStore::saveNightShift(bool enabled, uint8_t startH, uint8_t endH, uin
     prefs.end();
 }
 
-void ConfigStore::saveSunriseColor(bool enabled) {
-    Preferences prefs; prefs.begin(PREFS_NS, false);
-    prefs.putBool("sunClr", enabled);
-    prefs.end();
-}
-
 void ConfigStore::saveDateDisplay(bool enabled, uint8_t intervalSec) {
     Preferences prefs; prefs.begin(PREFS_NS, false);
     prefs.putBool("dateEn", enabled);
@@ -188,11 +180,7 @@ void ConfigStore::saveBuzzer(int level) {
     prefs.end();
 }
 
-void ConfigStore::saveGymMode(bool enabled) {
-    Preferences prefs; prefs.begin(PREFS_NS, false);
-    prefs.putBool("gymEn", enabled);
-    prefs.end();
-}
+
 
 void ConfigStore::savePomodoroIntervals(uint8_t intervals) {
     Preferences prefs; prefs.begin(PREFS_NS, false);
