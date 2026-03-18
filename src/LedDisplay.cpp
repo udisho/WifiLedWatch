@@ -474,7 +474,11 @@ void LedDisplay::scrollText(const char* text, int delayMs) {
 }
 
 void LedDisplay::showCrazy() {
-    // Randomize color of each lit LED — caller must call safeShow() after
+    // Randomize at fixed rate (~200ms) regardless of caller's refresh rate
+    static unsigned long lastUpdate = 0;
+    unsigned long now = millis();
+    if (now - lastUpdate < 200) return;
+    lastUpdate = now;
     for (int i = 0; i < TOTAL_LEDS; i++) {
         if ((i % NUM_LEDS_PER_DIGIT) == WIRING_ONLY_LED) continue;
         if (m_leds[i]) m_leds[i] = CHSV(random(256), 255, 255);
@@ -482,15 +486,19 @@ void LedDisplay::showCrazy() {
 }
 
 void LedDisplay::showRainbowWave() {
-    // Each digit gets a slightly different hue, creating a wave across digits
+    // Subtle rainbow wave: adjacent digits are close in hue, shifting slowly
     static uint8_t offset = 0;
-    offset += 1;
+    static unsigned long lastUpdate = 0;
+    unsigned long now = millis();
+    if (now - lastUpdate >= 500) {
+        lastUpdate = now;
+        offset += 1;
+    }
     for (int i = 0; i < TOTAL_LEDS; i++) {
         if ((i % NUM_LEDS_PER_DIGIT) == WIRING_ONLY_LED) continue;
         if (m_leds[i]) {
-            // Each digit gets its own hue (64 hue units apart = smooth color wheel rotation)
             int digit = i / NUM_LEDS_PER_DIGIT;
-            uint8_t hue = offset + (uint8_t)(digit * 64);
+            uint8_t hue = offset + (uint8_t)(digit * 12);
             m_leds[i] = CHSV(hue, 255, 255);
         }
     }

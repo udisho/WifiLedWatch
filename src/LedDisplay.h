@@ -56,6 +56,7 @@ public:
 
     void setOverrideColor(CRGB color) { m_overrideColor = color; m_useOverride = true; }
     void clearOverrideColor() { m_useOverride = false; }
+    bool hasOverrideColor() const { return m_useOverride; }
 
     void setBrightness(uint8_t brightness);
     uint8_t getBrightness() const { return m_brightness; }

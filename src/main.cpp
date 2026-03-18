@@ -168,14 +168,15 @@ void loop() {
 
     // Helper: render number + apply color mode + show ONCE (no flicker)
     auto showAndMirror = [&](int val) {
-        if (settings.colorMode >= 2) {
+        if (settings.colorMode >= 2 && !ledDisplay.hasOverrideColor()) {
             // For crazy/wave: render digits without showing, apply color, then show once
-            ledDisplay.renderNumber(val);  // fills LEDs but no FastLED.show()
+            // Skip when override is active (tabata/pomodoro own the color)
+            ledDisplay.renderNumber(val);
             if (settings.colorMode == 2) ledDisplay.showCrazy();
             else if (settings.colorMode == 3) ledDisplay.showRainbowWave();
-            ledDisplay.forceShow();  // single FastLED.show()
+            ledDisplay.forceShow();
         } else {
-            ledDisplay.showNumber(val);  // normal: render + show
+            ledDisplay.showNumber(val);
         }
         webUI.setDisplayValue(val);
         webUI.setDisplayBlank(false);
@@ -199,7 +200,7 @@ void loop() {
     if (settings.colorMode == 1) {
         static unsigned long lastRainbowUpdate = 0;
         static uint8_t rainbowHue = 0;
-        if (now - lastRainbowUpdate >= 80) {
+        if (now - lastRainbowUpdate >= 500) {
             lastRainbowUpdate = now;
             rainbowHue += 1;
         }
@@ -219,13 +220,13 @@ void loop() {
                     display = timeManager.get4Digit();
                 }
                 if (display != lastClockDisplay) {
-                    if (settings.animateTransitions) {
+                    if (settings.animateTransitions && settings.colorMode < 2) {
                         ledDisplay.showNumberFadeAnimated(display);
+                        webUI.setDisplayValue(display);
+                        webUI.setDisplayBlank(false);
                     } else {
-                        ledDisplay.showNumber(display);
+                        showAndMirror(display);
                     }
-                    webUI.setDisplayValue(display);
-                    webUI.setDisplayBlank(false);
                     lastClockDisplay = display;
                 } else {
                     showAndMirror(display);
