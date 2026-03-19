@@ -70,6 +70,21 @@ const ColorEntry COLOR_TABLE[] = {
 };
 const int COLOR_COUNT = sizeof(COLOR_TABLE) / sizeof(COLOR_TABLE[0]);
 
+// Voltage drop compensation: farther digits get dimmer (especially blue).
+// Proportional boost ensures channels at 0 stay at 0 (no blue into pure red).
+#define VDROP_GENERAL_PER_DIGIT  5   // ~2% brightness boost per digit (in 1/256ths)
+#define VDROP_BLUE_PER_DIGIT     8   // ~3% extra blue boost per digit (in 1/256ths)
+
+static CRGB compensateVoltage(CRGB c, int digitPos) {
+    if (digitPos <= 0) return c;
+    uint16_t gBoost = digitPos * VDROP_GENERAL_PER_DIGIT;
+    uint16_t bBoost = digitPos * VDROP_BLUE_PER_DIGIT;
+    c.r = min(255, (int)(c.r + ((uint16_t)c.r * gBoost >> 8)));
+    c.g = min(255, (int)(c.g + ((uint16_t)c.g * gBoost >> 8)));
+    c.b = min(255, (int)(c.b + ((uint16_t)c.b * bBoost >> 8)));
+    return c;
+}
+
 void LedDisplay::safeShow() {
     for (int d = 0; d < NUM_DIGITS; d++)
         m_leds[d * NUM_LEDS_PER_DIGIT + WIRING_ONLY_LED] = CRGB::Black;
@@ -91,7 +106,7 @@ void LedDisplay::clear() {
 
 void LedDisplay::showOneDigit(int digitPos, int charIndex) {
     if (charIndex < 0 || charIndex >= PAT_COUNT) return;
-    CRGB c = activeColor();
+    CRGB c = compensateVoltage(activeColor(), digitPos);
     int offset = digitPos * NUM_LEDS_PER_DIGIT;
     for (int i = 0; i < 28; i++) {
         unsigned int ledIdx = DIGIT_PATTERNS[charIndex][i];
@@ -474,19 +489,27 @@ void LedDisplay::scrollText(const char* text, int delayMs) {
 }
 
 void LedDisplay::showCrazy() {
-    // Randomize at fixed rate (~200ms) regardless of caller's refresh rate
+    // Always recolor lit LEDs (prevents static-color flash on digit change).
+    // Only regenerate random hues every 200ms for a calm animation rate.
     static unsigned long lastUpdate = 0;
+    static uint8_t hues[TOTAL_LEDS] = {};
     unsigned long now = millis();
-    if (now - lastUpdate < 200) return;
-    lastUpdate = now;
+    if (now - lastUpdate >= 200) {
+        lastUpdate = now;
+        for (int i = 0; i < TOTAL_LEDS; i++) hues[i] = random(256);
+    }
     for (int i = 0; i < TOTAL_LEDS; i++) {
         if ((i % NUM_LEDS_PER_DIGIT) == WIRING_ONLY_LED) continue;
-        if (m_leds[i]) m_leds[i] = CHSV(random(256), 255, 255);
+        if (m_leds[i]) {
+            CRGB c = CHSV(hues[i], 255, 255);
+            m_leds[i] = compensateVoltage(c, i / NUM_LEDS_PER_DIGIT);
+        }
     }
 }
 
 void LedDisplay::showRainbowWave() {
-    // Subtle rainbow wave: adjacent digits are close in hue, shifting slowly
+    // Inside-out wave: inner digits (1,2) share one hue, outer digits (0,3) share another.
+    // Hue shifts slowly so the wave is barely noticeable.
     static uint8_t offset = 0;
     static unsigned long lastUpdate = 0;
     unsigned long now = millis();
@@ -494,12 +517,15 @@ void LedDisplay::showRainbowWave() {
         lastUpdate = now;
         offset += 1;
     }
+    // Always apply colors (prevents static-color flash on digit change)
+    static const uint8_t distFromCenter[NUM_DIGITS] = { 1, 0, 0, 1 };
     for (int i = 0; i < TOTAL_LEDS; i++) {
         if ((i % NUM_LEDS_PER_DIGIT) == WIRING_ONLY_LED) continue;
         if (m_leds[i]) {
             int digit = i / NUM_LEDS_PER_DIGIT;
-            uint8_t hue = offset + (uint8_t)(digit * 12);
-            m_leds[i] = CHSV(hue, 255, 255);
+            uint8_t hue = offset + distFromCenter[digit] * 12;
+            CRGB c = CHSV(hue, 255, 255);
+            m_leds[i] = compensateVoltage(c, digit);
         }
     }
 }

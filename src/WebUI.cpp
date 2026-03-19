@@ -12,6 +12,18 @@ static int extractInt(const String& json, const char* key);
 static String extractString(const String& json, const char* key);
 static bool extractBool(const String& json, const char* key);
 
+// Firmware magic marker — must exist in every valid NeoTick binary
+#define OTA_MAGIC     "NEOTICK_FW_V3"
+#define OTA_MAGIC_LEN 13
+static const char NEOTICK_MAGIC[] __attribute__((used)) = OTA_MAGIC;
+static const char OTA_PASSWORD[] = "neotick2024";
+
+// OTA upload state
+static bool otaMagicFound = false;
+static bool otaPasswordOK = false;
+static uint8_t otaTail[OTA_MAGIC_LEN];
+static size_t otaTailLen = 0;
+
 // === Mobile-first Web GUI ===
 static const char WEB_HTML[] PROGMEM = R"=====(
 <!DOCTYPE html><html lang="en">
@@ -179,35 +191,35 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
     <div class="btn-row">
       <button class="btn btn-secondary" id="tmSetBtn" onclick="tmSet()">Set</button>
       <button class="btn" id="tmToggle" onclick="tmToggle()">Start</button>
-      <button class="btn btn-secondary" id="tmReset2" onclick="send({cmd:'timer',action:'reset'})" style="display:none">Reset</button>
     </div>
   </div>
 </div>
 
 <div class="panel" id="tabata">
-  <div class="card">
-    <div class="tab-phase" id="tabPhase">READY</div>
-    <div class="sw-time" id="tabDisp">00:20</div>
-    <div class="tab-info" id="tabInfo">Interval: - / -</div>
-    <div class="btn-row">
-      <button class="btn" id="tabToggle" onclick="tabToggle()">Start</button>
-      <button class="btn btn-secondary" id="tabReset2" onclick="send({cmd:'tabata',action:'reset'})" style="display:none">Reset</button>
+  <div class="card" style="padding:12px 16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+      <div style="flex:1;min-width:120px">
+        <div class="tab-phase" id="tabPhase" style="font-size:15px;padding:6px;margin-bottom:4px">READY</div>
+        <div class="sw-time" id="tabDisp" style="font-size:36px;padding:4px 0">00:20</div>
+        <div class="tab-info" id="tabInfo" style="font-size:12px;margin-top:2px">Interval: - / -</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="btn" id="tabToggle" onclick="tabToggle()" style="padding:10px 24px;font-size:14px">Start</button>
+        <button class="btn btn-secondary" id="tabReset2" onclick="send({cmd:'tabata',action:'reset'})" style="display:none;padding:8px 20px;font-size:12px">Reset</button>
+      </div>
     </div>
-  </div>
-  <div class="card" id="tabSummary" style="display:none">
-    <h3>Current Settings</h3>
-    <div style="text-align:center;font-size:14px;color:var(--text2);line-height:2">
-      <span>Work: <strong id="tabSumWork" style="color:var(--work)">20s</strong></span> &middot;
-      <span>Rest: <strong id="tabSumRest" style="color:var(--rest)">10s</strong></span> &middot;
-      <span>Intervals: <strong id="tabSumInt" style="color:var(--accent)">8</strong></span>
+    <div id="tabSummary" style="display:none;text-align:center;font-size:13px;color:var(--text2);margin-top:8px;padding-top:8px;border-top:1px solid #222">
+      Work: <strong id="tabSumWork" style="color:var(--work)">20s</strong> &middot;
+      Rest: <strong id="tabSumRest" style="color:var(--rest)">10s</strong> &middot;
+      Intervals: <strong id="tabSumInt" style="color:var(--accent)">8</strong>
     </div>
   </div>
   <div class="card" id="tabCfg">
     <h3>Tabata Settings</h3>
-    <div style="display:flex;gap:12px;justify-content:center;align-items:flex-end;flex-wrap:wrap">
+    <div style="display:flex;gap:24px;justify-content:center;align-items:flex-start;flex-wrap:wrap">
       <div style="text-align:center"><div style="font-size:11px;color:var(--work);margin-bottom:2px">Work</div><div style="display:flex;gap:2px;align-items:center"><div class="wc-wrap"><div class="wc" id="tabWorkMinW" style="width:44px;height:100px"></div></div><span style="font-size:11px;color:var(--text2)">:</span><div class="wc-wrap"><div class="wc" id="tabWorkSecW" style="width:44px;height:100px"></div></div></div><div style="font-size:10px;color:var(--text2)">min : sec</div></div>
       <div style="text-align:center"><div style="font-size:11px;color:var(--rest);margin-bottom:2px">Rest</div><div style="display:flex;gap:2px;align-items:center"><div class="wc-wrap"><div class="wc" id="tabRestMinW" style="width:44px;height:100px"></div></div><span style="font-size:11px;color:var(--text2)">:</span><div class="wc-wrap"><div class="wc" id="tabRestSecW" style="width:44px;height:100px"></div></div></div><div style="font-size:10px;color:var(--text2)">min : sec</div></div>
-      <div style="text-align:center"><div style="font-size:11px;color:var(--accent);margin-bottom:2px">Rounds</div><div class="wc-wrap"><div class="wc" id="tabIntW" style="width:44px;height:100px"></div></div></div>
+      <div style="text-align:center"><div style="font-size:11px;color:var(--accent);margin-bottom:2px">Rounds</div><div class="wc-wrap"><div class="wc" id="tabIntW" style="width:44px;height:100px"></div></div><div style="font-size:10px;color:var(--text2)">&nbsp;</div></div>
     </div>
     <div style="display:flex;gap:8px;margin-top:12px;justify-content:center;flex-wrap:wrap">
       <span style="font-size:12px;color:var(--text2)">Work:</span><select id="tabWC" style="width:auto;padding:4px 8px;font-size:12px;border-radius:6px;border:1px solid #333;background:var(--btn);color:var(--text)"></select>
@@ -217,13 +229,11 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
       <button class="btn btn-primary" style="font-size:13px;padding:10px 20px" onclick="saveTabata()">Save</button>
     </div>
     <div style="margin-top:12px;border-top:1px solid #222;padding-top:10px">
-      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-        <select id="tabPresetSel" style="flex:1;padding:6px;font-size:12px;border-radius:6px;border:1px solid #333;background:var(--btn);color:var(--text)"></select>
-        <button class="btn btn-secondary" style="padding:6px 10px;font-size:11px" onclick="loadTabPreset()">Load</button>
-        <button class="btn btn-danger" style="padding:6px 10px;font-size:11px" onclick="delTabPreset()">Del</button>
-      </div>
-      <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
-        <input type="text" id="tabPresetName" maxlength="15" placeholder="Name" style="flex:1;padding:6px;border-radius:6px;border:1px solid #333;background:var(--btn);color:var(--text);font-size:12px">
+      <h3 style="font-size:12px;margin-bottom:8px">Presets</h3>
+      <div id="tabPresetList" style="margin-bottom:8px"></div>
+      <select id="tabPresetSel" style="display:none"></select>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="text" id="tabPresetName" maxlength="15" placeholder="Preset name" style="flex:1;padding:6px;border-radius:6px;border:1px solid #333;background:var(--btn);color:var(--text);font-size:12px">
         <button class="btn btn-primary" style="padding:6px 10px;font-size:11px" onclick="saveTabPreset()">Save Preset</button>
       </div>
     </div>
@@ -334,8 +344,21 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
   </div>
 
   <div class="sec-hdr" onclick="togSec(this)"><h3>Firmware Update</h3><span class="arr">&#9660;</span></div>
-  <div class="sec-body" style="text-align:center">
-    <a href="/update" target="_blank" class="btn btn-secondary" style="display:inline-block;text-decoration:none;padding:10px 20px;font-size:13px">Open Update Page</a>
+  <div class="sec-body" id="otaSec">
+    <div style="background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);border-radius:10px;padding:12px;margin-bottom:12px">
+      <div style="font-size:13px;color:var(--danger);font-weight:700;margin-bottom:4px">&#9888; Developer Only</div>
+      <div style="font-size:11px;color:var(--text2);line-height:1.5">Uploading incorrect firmware can brick your device. Do not use unless you know what you are doing. Do not disconnect power during update.</div>
+    </div>
+    <div id="otaForm">
+      <div style="margin-bottom:10px"><input type="password" id="otaPass" placeholder="Developer password" style="width:100%;padding:10px;border-radius:8px;border:1px solid #333;background:var(--btn);color:var(--text);font-size:14px"></div>
+      <div style="margin-bottom:10px"><input type="file" id="otaFile" accept=".bin" style="font-size:13px;color:var(--text2)"></div>
+      <button class="btn btn-danger" style="width:100%;padding:12px;font-size:14px" onclick="startOTA()">Upload Firmware</button>
+    </div>
+    <div id="otaProgress" style="display:none;text-align:center">
+      <div style="font-size:16px;font-weight:700;color:var(--accent);margin-bottom:10px" id="otaStatus">Uploading...</div>
+      <div style="background:#333;border-radius:6px;height:8px;overflow:hidden;margin-bottom:8px"><div id="otaBar" style="background:var(--accent);height:100%;width:0%;transition:width .2s"></div></div>
+      <div style="font-size:12px;color:var(--text2)" id="otaPct">0%</div>
+    </div>
   </div>
 
   <div class="card">
@@ -383,6 +406,9 @@ const SEGS='abcdefg';
 function initSegs(){for(let i=0;i<4;i++){const el=document.getElementById('sd'+i);el.innerHTML='';SEGS.split('').forEach(s=>{const sp=document.createElement('span');sp.className=s;el.appendChild(sp);});}}
 function setDigit(idx,val){const el=document.getElementById('sd'+idx);if(!el)return;const bits=val>=0&&val<=9?SEG[val]:0;const spans=el.querySelectorAll('span');SEGS.split('').forEach((s,i)=>{spans[i].classList.toggle('on',!!(bits&(0x40>>i)));});}
 function updateSeg(){if(st.dv===undefined)return;const v=st.dv;if(st.db){setDigit(0,-1);setDigit(1,-1);setDigit(2,-1);setDigit(3,-1);}else{setDigit(0,Math.floor(v/1000)%10);setDigit(1,Math.floor(v/100)%10);setDigit(2,Math.floor(v/10)%10);setDigit(3,v%10);}}
+function hslStr(h,s,l){return 'hsl('+h+','+s+'%,'+l+'%)';}
+var crazyHues=[0,0,0,0],waveOff=0,lastWaveT=0,lastCrazyT=0;
+function animSegColors(){var now=Date.now();if(st.clrMode===2){if(now-lastCrazyT>200){lastCrazyT=now;for(var i=0;i<4;i++)crazyHues[i]=Math.floor(Math.random()*360);}for(var i=0;i<4;i++)document.getElementById('sd'+i).style.setProperty('--clr',hslStr(crazyHues[i],100,50));}else if(st.clrMode===3){if(now-lastWaveT>500){lastWaveT=now;waveOff=(waveOff+1.4)%360;}var dist=[1,0,0,1];for(var i=0;i<4;i++)document.getElementById('sd'+i).style.setProperty('--clr',hslStr((waveOff+dist[i]*17)%360,100,50));}}
 function makeWheel(id,max){const el=document.getElementById(id);el.innerHTML='';for(let i=0;i<=max;i++){const d=document.createElement('div');d.textContent=String(i);el.appendChild(d);}}
 function setWheel(id,val){const el=document.getElementById(id);setTimeout(()=>{el.scrollTop=val*40;},50);}
 function getWheel(id){return Math.max(0,Math.round(document.getElementById(id).scrollTop/40));}
@@ -468,7 +494,7 @@ function updateUI(){
       if(st.mode===1)t.innerHTML+=('<span class="sec">.'+Math.floor(((st.swMs||0)%1000)/100)+'</span>');
     }
     updateSeg();
-    if(st.clr){document.getElementById('segDisp').style.setProperty('--clr',st.clr);t.style.color=st.clr;}
+    if(st.clrMode>=2){animSegColors();t.style.color='var(--accent)';}else if(st.clr){document.getElementById('segDisp').style.setProperty('--clr',st.clr);t.style.color=st.clr;}
   }
   document.querySelector('.seg-bar').classList.toggle('anim', !!st.anim);
   var paused=(!st.swRun&&st.swMs>0&&st.mode===1)||(!st.tmRun&&!st.tmDone&&st.tmMs>0&&st.tmMs<st.tmDur&&st.mode===2)||(st.tabPaused&&st.mode===3);
@@ -502,9 +528,8 @@ function updateUI(){
     }
     const b=document.getElementById('tmToggle');
     if(st.tmRun){b.textContent='Stop';b.className='btn btn-danger';}
-    else if(st.tmMs>0){b.textContent='Resume';b.className='btn btn-primary';}
+    else if(st.tmMs>0&&!st.tmDone){b.textContent='Resume';b.className='btn btn-primary';}
     else{b.textContent='Start';b.className='btn btn-primary';}
-    document.getElementById('tmReset2').style.display=(!st.tmRun&&st.tmMs>0)?'':'none';
     document.getElementById('timerSetRow').style.display=st.tmRun?'none':'';
     document.getElementById('tmSetBtn').style.display=st.tmRun?'none':'';
   }
@@ -542,10 +567,10 @@ function updateUI(){
     document.getElementById('tabSumWork').textContent=fmtDur(st.tbWork);
     document.getElementById('tabSumRest').textContent=fmtDur(st.tbRest);
     document.getElementById('tabSumInt').textContent=st.tbInt2;
-    document.getElementById('tabSummary').style.display=(st.tabRun||st.tabDone)?'':'none';
+    document.getElementById('tabSummary').style.display=(st.tabRun||st.tabDone)?'block':'none';
   }
   if(st.animTr!==undefined&&st.full){document.getElementById('animToggle').checked=st.animTr;}
-  if(st.clrMode!==undefined&&st.full){var r=document.querySelector('input[name=clrMode][value="'+st.clrMode+'"]');if(r)r.checked=true;}
+  if(st.clrMode!==undefined&&st.full){var r2=document.querySelector('input[name=clrMode][value="'+st.clrMode+'"]');if(r2)r2.checked=true;}
   if(st.pomMs!==undefined){
     var ms=Math.max(0,st.pomMs),s=Math.ceil(ms/1000),m=Math.floor(s/60);
     document.getElementById('pomDisp').textContent=P(m)+':'+P(s%60);
@@ -567,7 +592,7 @@ function updateUI(){
   if(st.cwBuzz!==undefined&&st.full)document.getElementById('cwToggle').checked=st.cwBuzz;
   if(st.rssi!==undefined){var r=st.rssi,q=r>-50?'Excellent':r>-65?'Good':r>-75?'Weak':'Poor',cl=r>-50?'var(--success)':r>-65?'var(--accent)':r>-75?'#FFA500':'var(--danger)';document.getElementById('rssiLine').innerHTML='Signal: <strong style="color:'+cl+'">'+r+' dBm ('+q+')</strong>';}
   if(st.bdays){var bl=document.getElementById('bdayList');bl.innerHTML='';st.bdays.forEach(function(b,i){bl.innerHTML+='<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:13px"><span>'+b.n+' - '+P(b.d)+'/'+P(b.m)+'</span><button class="btn btn-danger" style="padding:4px 10px;font-size:11px" onclick="delBday('+i+')">X</button></div>';});}
-  if(st.tabPresets){var sel=document.getElementById('tabPresetSel');sel.innerHTML='';st.tabPresets.forEach(function(p,i){if(p.n){var o=document.createElement('option');o.value=i;o.textContent=p.n+' ('+p.w+'s/'+p.r+'s)';sel.appendChild(o);}});}
+  if(st.tabPresets){var sel=document.getElementById('tabPresetSel');sel.innerHTML='';var pl=document.getElementById('tabPresetList');pl.innerHTML='';st.tabPresets.forEach(function(p,i){if(p.n){var o=document.createElement('option');o.value=i;o.textContent=p.n;sel.appendChild(o);pl.innerHTML+='<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-bottom:4px;background:rgba(255,255,255,.03);border-radius:8px;font-size:13px"><span style="color:var(--text)">'+p.n+' <span style="color:var(--text2);font-size:11px">'+p.w+'s / '+p.r+'s / '+p.i+'r</span></span><span style="display:flex;gap:4px"><button class="btn btn-secondary" style="padding:4px 10px;font-size:11px" onclick="loadTabPresetIdx('+i+')">Load</button><button class="btn btn-danger" style="padding:4px 8px;font-size:11px" onclick="delTabPresetIdx('+i+')">X</button></span></div>';}});if(!pl.innerHTML)pl.innerHTML='<div style="font-size:12px;color:var(--text2);padding:4px">No presets saved</div>';}
   if(st.nsEn!==undefined&&st.full){
     document.getElementById('nsToggle').checked=st.nsEn;
     document.getElementById('nsStart').value=st.nsStart;
@@ -582,7 +607,7 @@ function swToggle(){
   if(st.swRun) send({cmd:'sw',action:'stop'});
   else send({cmd:'sw',action:'start'});
 }
-function tmSet(){send({cmd:'timer',action:'set',duration:(getWheel('timerMinW')*60+getWheel('timerSecW'))*1000});}
+function tmSet(){var d=(getWheel('timerMinW')*60+getWheel('timerSecW'))*1000;send({cmd:'timer',action:'set',duration:d});}
 function tmToggle(){
   if(st.tmRun) send({cmd:'timer',action:'stop'});
   else if(st.tmMs>0&&!st.tmDone) send({cmd:'timer',action:'start'});
@@ -611,6 +636,24 @@ function delBday(i){sendSave({cmd:'bday_del',index:i});}
 function loadTabPreset(){sendSave({cmd:'tab_preset_load',index:+document.getElementById('tabPresetSel').value});}
 function saveTabPreset(){var n=document.getElementById('tabPresetName').value;if(!n)return;var ws=getWheel('tabWorkMinW')*60+getWheel('tabWorkSecW'),rs=getWheel('tabRestMinW')*60+getWheel('tabRestSecW');sendSave({cmd:'tab_preset_save',name:n,work:ws||20,rest:rs||10,intervals:getWheel('tabIntW')||8});}
 function delTabPreset(){var i=+document.getElementById('tabPresetSel').value;sendSave({cmd:'tab_preset_del',index:i});}
+function loadTabPresetIdx(i){sendSave({cmd:'tab_preset_load',index:i});}
+function delTabPresetIdx(i){sendSave({cmd:'tab_preset_del',index:i});}
+function startOTA(){
+  var pass=document.getElementById('otaPass').value;
+  if(pass!=='neotick2024'){alert('Wrong password');return;}
+  var file=document.getElementById('otaFile').files[0];
+  if(!file){alert('Select a .bin file first');return;}
+  if(!file.name.endsWith('.bin')){alert('Only .bin files are allowed');return;}
+  if(!confirm('Are you sure? The watch will restart after update.')){return;}
+  document.getElementById('otaForm').style.display='none';
+  document.getElementById('otaProgress').style.display='block';
+  var xhr=new XMLHttpRequest();
+  var form=new FormData();form.append('firmware',file);
+  xhr.upload.onprogress=function(e){if(e.lengthComputable){var pct=Math.round(e.loaded/e.total*100);document.getElementById('otaBar').style.width=pct+'%';document.getElementById('otaPct').textContent=pct+'%';document.getElementById('otaStatus').textContent='Uploading... '+pct+'%';}};
+  xhr.onload=function(){if(xhr.responseText==='FAIL'){document.getElementById('otaStatus').textContent='Update Failed!';document.getElementById('otaStatus').style.color='var(--danger)';document.getElementById('otaPct').textContent='The file may be corrupted. Please try again.';setTimeout(function(){document.getElementById('otaForm').style.display='block';document.getElementById('otaProgress').style.display='none';},3000);}else{document.getElementById('otaBar').style.width='100%';document.getElementById('otaStatus').textContent='Update Successful!';document.getElementById('otaStatus').style.color='var(--success)';var cd=5;document.getElementById('otaPct').textContent='Watch will restart in '+cd+'s. Do not disconnect power.';var ti=setInterval(function(){cd--;document.getElementById('otaPct').textContent='Watch will restart in '+cd+'s. Do not disconnect power.';if(cd<=0){clearInterval(ti);document.getElementById('otaPct').textContent='Restarting... Please wait and reconnect.';}},1000);}};
+  xhr.onerror=function(){document.getElementById('otaStatus').textContent='Upload Error';document.getElementById('otaStatus').style.color='var(--danger)';document.getElementById('otaPct').textContent='Network error. Check connection.';};
+  xhr.open('POST','/update?pass='+encodeURIComponent(pass));xhr.send(form);
+}
 init();
 </script>
 </body></html>
@@ -784,6 +827,7 @@ String WebUI::buildFastJSON() {
     j += ",\"anim\":"; j += m_animating ? "true" : "false";
     j += ",\"synced\":"; j += m_timeMgr->isTimeSynced() ? "true" : "false";
     j += ",\"wifiLost\":"; j += (WiFi.status() != WL_CONNECTED) ? "true" : "false";
+    j += ",\"clrMode\":"; j += m_settings->colorMode;
     j += "}";
     return j;
 }
@@ -825,7 +869,6 @@ String WebUI::buildStateJSON() {
     j += ",\"buzzLv\":"; j += m_settings->buzzerLevel;
     j += ",\"cwBuzz\":"; j += m_settings->clockworkBuzzer ? "true" : "false";
 
-    j += ",\"clrMode\":"; j += m_settings->colorMode;
     j += ",\"rssi\":"; j += WiFi.RSSI();
     j += ",\"bdays\":[";
     for (int i = 0; i < m_settings->birthdayCount && i < MAX_BIRTHDAYS; i++) {
@@ -869,17 +912,54 @@ void WebUI::begin(LedDisplay* display, TimeManager* timeMgr, ConfigStore* config
     m_server->on("/", HTTP_GET, [](AsyncWebServerRequest* r) { r->send(200, "text/html", WEB_HTML); });
     m_server->on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest* r) { r->send(404); });
     m_server->on("/update", HTTP_GET, [](AsyncWebServerRequest* r) {
-        r->send(200, "text/html", "<html><body style='background:#0f0f23;color:#e0e0e0;font-family:sans-serif;text-align:center;padding:40px'><h2>Firmware Update</h2><form method='POST' action='/update' enctype='multipart/form-data'><input type='file' name='firmware' style='margin:20px'><br><input type='submit' value='Upload' style='padding:12px 24px;font-size:16px;cursor:pointer'></form></body></html>");
+        r->send(200, "text/html", "<html><body style='background:#0f0f23;color:#e0e0e0;font-family:sans-serif;text-align:center;padding:40px'><h2>Firmware Update</h2><p style='color:#e74c3c'>Developer Only - Use main UI for guided update</p><form id='f' method='POST' enctype='multipart/form-data'><input type='password' id='p' placeholder='Password' style='margin:10px;padding:8px'><br><input type='file' name='firmware' style='margin:10px'><br><input type='button' value='Upload' onclick=\"f.action='/update?pass='+encodeURIComponent(p.value);f.submit()\" style='padding:12px 24px;font-size:16px;cursor:pointer'></form></body></html>");
     });
     m_server->on("/update", HTTP_POST,
         [](AsyncWebServerRequest* r) {
-            r->send(200, "text/plain", Update.hasError() ? "FAIL" : "OK, rebooting...");
-            if (!Update.hasError()) ESP.restart();
+            bool ok = !Update.hasError() && otaMagicFound && otaPasswordOK;
+            r->send(200, "text/plain", ok ? "OK" : "FAIL");
+            if (ok) { delay(500); ESP.restart(); }
         },
         [](AsyncWebServerRequest* r, String filename, size_t index, uint8_t* data, size_t len, bool final) {
-            if (!index) Update.begin(UPDATE_SIZE_UNKNOWN);
+            if (!index) {
+                // Check password from query param
+                otaPasswordOK = r->hasParam("pass") && r->getParam("pass")->value() == OTA_PASSWORD;
+                otaMagicFound = false;
+                otaTailLen = 0;
+                if (!otaPasswordOK) return;
+                Update.begin(UPDATE_SIZE_UNKNOWN);
+            }
+            if (!otaPasswordOK) return;
+
+            // Search for magic marker in uploaded data
+            if (!otaMagicFound) {
+                // Check overlap from previous chunk boundary
+                if (otaTailLen > 0 && len > 0) {
+                    uint8_t buf[OTA_MAGIC_LEN * 2];
+                    memcpy(buf, otaTail, otaTailLen);
+                    size_t copyLen = min(len, (size_t)(OTA_MAGIC_LEN - 1));
+                    memcpy(buf + otaTailLen, data, copyLen);
+                    size_t searchLen = otaTailLen + copyLen;
+                    for (size_t i = 0; i + OTA_MAGIC_LEN <= searchLen; i++) {
+                        if (memcmp(buf + i, OTA_MAGIC, OTA_MAGIC_LEN) == 0) { otaMagicFound = true; break; }
+                    }
+                }
+                // Search current chunk
+                if (!otaMagicFound) {
+                    for (size_t i = 0; i + OTA_MAGIC_LEN <= len; i++) {
+                        if (memcmp(data + i, OTA_MAGIC, OTA_MAGIC_LEN) == 0) { otaMagicFound = true; break; }
+                    }
+                }
+                // Save tail for cross-boundary check
+                otaTailLen = min(len, (size_t)(OTA_MAGIC_LEN - 1));
+                memcpy(otaTail, data + len - otaTailLen, otaTailLen);
+            }
+
             Update.write(data, len);
-            if (final) Update.end(true);
+            if (final) {
+                if (otaMagicFound) Update.end(true);
+                else Update.abort();
+            }
         }
     );
     m_server->begin();
