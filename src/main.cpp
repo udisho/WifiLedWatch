@@ -173,7 +173,7 @@ void loop() {
             // Skip when override is active (tabata/pomodoro own the color)
             ledDisplay.renderNumber(val);
             if (settings.colorMode == 2) ledDisplay.showCrazy();
-            else if (settings.colorMode == 3) ledDisplay.showRainbowWave();
+            else if (settings.colorMode == 3) ledDisplay.showPulse();
             ledDisplay.forceShow();
         } else {
             ledDisplay.showNumber(val);
@@ -200,7 +200,7 @@ void loop() {
     if (settings.colorMode == 1) {
         static unsigned long lastRainbowUpdate = 0;
         static uint8_t rainbowHue = 0;
-        if (now - lastRainbowUpdate >= 500) {
+        if (now - lastRainbowUpdate >= 800) {
             lastRainbowUpdate = now;
             rainbowHue += 1;
         }

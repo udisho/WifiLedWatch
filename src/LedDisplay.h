@@ -43,7 +43,7 @@ public:
     void runStartupAnimation();
     void runCascadeAnimation();
     void showCrazy();
-    void showRainbowWave();
+    void showPulse();
 
     // Color
     void setColor(CRGB color);

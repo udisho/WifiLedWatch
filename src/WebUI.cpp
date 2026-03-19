@@ -278,7 +278,7 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
         <label><input type="radio" name="clrMode" value="0" checked onchange="send({cmd:'colormode',value:0})">Static</label>
         <label><input type="radio" name="clrMode" value="1" onchange="send({cmd:'colormode',value:1})">Rainbow</label>
         <label><input type="radio" name="clrMode" value="2" onchange="send({cmd:'colormode',value:2})">Crazy</label>
-        <label><input type="radio" name="clrMode" value="3" onchange="send({cmd:'colormode',value:3})">Wave</label>
+        <label><input type="radio" name="clrMode" value="3" onchange="send({cmd:'colormode',value:3})">Pulse</label>
       </div>
     </div>
   </div>
@@ -407,8 +407,8 @@ function initSegs(){for(let i=0;i<4;i++){const el=document.getElementById('sd'+i
 function setDigit(idx,val){const el=document.getElementById('sd'+idx);if(!el)return;const bits=val>=0&&val<=9?SEG[val]:0;const spans=el.querySelectorAll('span');SEGS.split('').forEach((s,i)=>{spans[i].classList.toggle('on',!!(bits&(0x40>>i)));});}
 function updateSeg(){if(st.dv===undefined)return;const v=st.dv;if(st.db){setDigit(0,-1);setDigit(1,-1);setDigit(2,-1);setDigit(3,-1);}else{setDigit(0,Math.floor(v/1000)%10);setDigit(1,Math.floor(v/100)%10);setDigit(2,Math.floor(v/10)%10);setDigit(3,v%10);}}
 function hslStr(h,s,l){return 'hsl('+h+','+s+'%,'+l+'%)';}
-var crazyHues=[0,0,0,0],waveOff=0,lastWaveT=0,lastCrazyT=0;
-function animSegColors(){var now=Date.now();if(st.clrMode===2){if(now-lastCrazyT>200){lastCrazyT=now;for(var i=0;i<4;i++)crazyHues[i]=Math.floor(Math.random()*360);}for(var i=0;i<4;i++)document.getElementById('sd'+i).style.setProperty('--clr',hslStr(crazyHues[i],100,50));}else if(st.clrMode===3){if(now-lastWaveT>500){lastWaveT=now;waveOff=(waveOff+1.4)%360;}var dist=[1,0,0,1];for(var i=0;i<4;i++)document.getElementById('sd'+i).style.setProperty('--clr',hslStr((waveOff+dist[i]*17)%360,100,50));}}
+var crazyHues=[0,0,0,0],lastCrazyT=0,pulseHue=0,pulsePhaseStart=0,pulseTransitioning=false;
+function animSegColors(){var now=Date.now();if(st.clrMode===2){if(now-lastCrazyT>200){lastCrazyT=now;for(var i=0;i<4;i++)crazyHues[i]=Math.floor(Math.random()*360);}for(var i=0;i<4;i++)document.getElementById('sd'+i).style.setProperty('--clr',hslStr(crazyHues[i],100,50));}else if(st.clrMode===3){if(!pulsePhaseStart)pulsePhaseStart=now;var h;if(!pulseTransitioning){h=pulseHue;if(now-pulsePhaseStart>=3000){pulseTransitioning=true;pulsePhaseStart=now;}}else{var el=now-pulsePhaseStart;if(el>=400){pulseHue=(pulseHue+42)%360;h=pulseHue;pulseTransitioning=false;pulsePhaseStart=now;}else{h=(pulseHue+Math.floor(42*el/400))%360;}}for(var i=0;i<4;i++)document.getElementById('sd'+i).style.setProperty('--clr',hslStr(h,100,50));}}
 function makeWheel(id,max){const el=document.getElementById(id);el.innerHTML='';for(let i=0;i<=max;i++){const d=document.createElement('div');d.textContent=String(i);el.appendChild(d);}}
 function setWheel(id,val){const el=document.getElementById(id);setTimeout(()=>{el.scrollTop=val*40;},50);}
 function getWheel(id){return Math.max(0,Math.round(document.getElementById(id).scrollTop/40));}

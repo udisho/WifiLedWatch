@@ -507,25 +507,41 @@ void LedDisplay::showCrazy() {
     }
 }
 
-void LedDisplay::showRainbowWave() {
-    // Inside-out wave: inner digits (1,2) share one hue, outer digits (0,3) share another.
-    // Hue shifts slowly so the wave is barely noticeable.
-    static uint8_t offset = 0;
-    static unsigned long lastUpdate = 0;
+void LedDisplay::showPulse() {
+    // Pulse mode: hold a color, then rapidly sweep through the gradient to the next.
+    static uint8_t currentHue = 0;
+    static uint8_t displayHue = 0;
+    static unsigned long phaseStart = 0;
+    static bool transitioning = false;
+
     unsigned long now = millis();
-    if (now - lastUpdate >= 500) {
-        lastUpdate = now;
-        offset += 1;
+    if (phaseStart == 0) phaseStart = now;
+
+    if (!transitioning) {
+        displayHue = currentHue;
+        if (now - phaseStart >= 3000) {  // hold 3 seconds
+            transitioning = true;
+            phaseStart = now;
+        }
+    } else {
+        unsigned long elapsed = now - phaseStart;
+        const unsigned long sweepMs = 400;  // 400ms fast sweep
+        if (elapsed >= sweepMs) {
+            currentHue += 30;  // land on next color (uint8_t wraps naturally)
+            displayHue = currentHue;
+            transitioning = false;
+            phaseStart = now;
+        } else {
+            // Sweep through intermediate hues
+            displayHue = currentHue + (uint8_t)((30UL * elapsed) / sweepMs);
+        }
     }
-    // Always apply colors (prevents static-color flash on digit change)
-    static const uint8_t distFromCenter[NUM_DIGITS] = { 1, 0, 0, 1 };
+
     for (int i = 0; i < TOTAL_LEDS; i++) {
         if ((i % NUM_LEDS_PER_DIGIT) == WIRING_ONLY_LED) continue;
         if (m_leds[i]) {
-            int digit = i / NUM_LEDS_PER_DIGIT;
-            uint8_t hue = offset + distFromCenter[digit] * 12;
-            CRGB c = CHSV(hue, 255, 255);
-            m_leds[i] = compensateVoltage(c, digit);
+            CRGB c = CHSV(displayHue, 255, 255);
+            m_leds[i] = compensateVoltage(c, i / NUM_LEDS_PER_DIGIT);
         }
     }
 }
