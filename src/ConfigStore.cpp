@@ -1,8 +1,6 @@
 #include "ConfigStore.h"
 #include <Preferences.h>
 
-#define PREFS_NS "watchsettings"
-
 void ConfigStore::begin() {}
 
 void ConfigStore::load(WatchSettings& s) {

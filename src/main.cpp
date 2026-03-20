@@ -27,18 +27,19 @@ int lastBirthdayHour = -1;
 #define TABATA_REFRESH_MS     50
 #define TIMER_REFRESH_MS     100
 
+// Night shift helper — shared by colon, brightness, clockwork, date display
+bool isNightShiftActive() {
+    if (!settings.nightShiftEnabled || !timeManager.isTimeSynced()) return false;
+    int h = timeManager.getHours();
+    if (settings.nightShiftStartHour > settings.nightShiftEndHour)
+        return (h >= settings.nightShiftStartHour || h < settings.nightShiftEndHour);
+    else
+        return (h >= settings.nightShiftStartHour && h < settings.nightShiftEndHour);
+}
+
 // Colon LED helper
 void updateColonLED(unsigned long now, bool wifiLost) {
-    // Check if colon LEDs should be off (user disabled or night shift active)
-    bool nightActive = false;
-    if (settings.nightShiftEnabled && timeManager.isTimeSynced()) {
-        int h = timeManager.getHours();
-        if (settings.nightShiftStartHour > settings.nightShiftEndHour)
-            nightActive = (h >= settings.nightShiftStartHour || h < settings.nightShiftEndHour);
-        else
-            nightActive = (h >= settings.nightShiftStartHour && h < settings.nightShiftEndHour);
-    }
-    if (!settings.colonLedsEnabled || nightActive) {
+    if (!settings.colonLedsEnabled || isNightShiftActive()) {
         digitalWrite(COLON_LED_PIN, LOW);
         return;
     }
@@ -96,6 +97,9 @@ void loop() {
     unsigned long now = millis();
     wifiManager.update();
 
+    static bool dateShowing = false;
+    static unsigned long dateShowStart = 0;
+    static int dateDispVal = 0;
     static bool servicesStarted = false;
     if (wifiManager.isConnected() && !servicesStarted) {
         servicesStarted = true;
@@ -211,6 +215,7 @@ void loop() {
 
     switch (mode) {
         case MODE_CLOCK: {
+            if (dateShowing) break;  // date display owns the LEDs
             if (now - lastDisplayUpdate >= CLOCK_REFRESH_MS) {
                 lastDisplayUpdate = now;
                 int display;
@@ -332,19 +337,26 @@ void loop() {
     }
 
 
-    // Brightness state machine: night shift > normal
+    // Brightness state machine: thermal > night shift > normal
     {
-        bool isNight = false;
-        if (settings.nightShiftEnabled && timeManager.isTimeSynced()) {
-            int h = timeManager.getHours();
-            if (settings.nightShiftStartHour > settings.nightShiftEndHour)
-                isNight = (h >= settings.nightShiftStartHour || h < settings.nightShiftEndHour);
-            else
-                isNight = (h >= settings.nightShiftStartHour && h < settings.nightShiftEndHour);
-        }
+        bool isNight = isNightShiftActive();
         uint8_t targetBright;
         if (isNight) targetBright = settings.nightShiftBrightness;
         else targetBright = settings.brightness;
+
+        // Thermal protection: cap brightness after sustained high temp
+        static unsigned long hotSince = 0;
+        static bool thermalThrottled = false;
+        int cpuTemp = (int)temperatureRead();
+        if (cpuTemp >= THERMAL_THROTTLE_TEMP) {
+            if (hotSince == 0) hotSince = now;
+            if (now - hotSince >= 30000) thermalThrottled = true;  // hot for 30s
+        } else {
+            hotSince = 0;
+            if (cpuTemp < THERMAL_THROTTLE_TEMP - 5) thermalThrottled = false;  // 5°C hysteresis
+        }
+        if (thermalThrottled && targetBright > THERMAL_THROTTLE_BRIGHT)
+            targetBright = THERMAL_THROTTLE_BRIGHT;
 
         ledDisplay.setBrightness(targetBright);
     }
@@ -355,15 +367,7 @@ void loop() {
         int h = timeManager.getHours();
         int m = timeManager.getMinutes();
         if (m == 0 && h != lastChimeHour) {
-            // Check night shift — silence during night
-            bool isNight = false;
-            if (settings.nightShiftEnabled) {
-                if (settings.nightShiftStartHour > settings.nightShiftEndHour)
-                    isNight = (h >= settings.nightShiftStartHour || h < settings.nightShiftEndHour);
-                else
-                    isNight = (h >= settings.nightShiftStartHour && h < settings.nightShiftEndHour);
-            }
-            if (!isNight) {
+            if (!isNightShiftActive()) {
                 lastChimeHour = h;
                 int chimes = h % 12;
                 if (chimes == 0) chimes = 12;
@@ -379,19 +383,26 @@ void loop() {
         if (m != 0) lastChimeHour = -1;  // reset for next hour
     }
 
-    // Date display (only in clock mode)
+    // Date display (only in clock mode) — non-blocking
     if (mode == MODE_CLOCK && settings.showDateEnabled && timeManager.isTimeSynced()) {
         unsigned long dateIv = (unsigned long)settings.showDateIntervalSec * 1000UL;
-        if (now - lastDateShow >= dateIv) {
-            lastDateShow = now;
+        if (!dateShowing && now - lastDateShow >= dateIv) {
+            dateShowing = true;
+            dateShowStart = now;
             int dd = timeManager.getDay();
             int mm = timeManager.getMonth();
-            int dateDisp = dd * 100 + mm;
-            ledDisplay.showNumber(dateDisp);
-            digitalWrite(COLON_LED_PIN, HIGH);
-            delay(2000);
-            digitalWrite(COLON_LED_PIN, LOW);
-            lastClockDisplay = -1;
+            dateDispVal = dd * 100 + mm;
+            if (!isNightShiftActive() && settings.colonLedsEnabled)
+                digitalWrite(COLON_LED_PIN, HIGH);
+        }
+        if (dateShowing) {
+            showAndMirror(dateDispVal);
+            if (now - dateShowStart >= 2000) {
+                dateShowing = false;
+                lastDateShow = now;
+                digitalWrite(COLON_LED_PIN, LOW);
+                lastClockDisplay = -1;
+            }
         }
     }
 

@@ -126,10 +126,10 @@ private:
 
     // Deferred NVS save (avoid flooding on rapid changes)
     unsigned long m_pendingSave = 0;
-    bool m_settingsDirty = false;  // track if anything actually changed
 
     // Broadcast timing
     unsigned long m_lastBroadcast = 0;
+    unsigned long m_lastFullBroadcast = 0;
 
     void setupRoutes();
     void handleWebSocketMessage(AsyncWebSocketClient* client, uint8_t* data, size_t len);

@@ -72,8 +72,8 @@ const int COLOR_COUNT = sizeof(COLOR_TABLE) / sizeof(COLOR_TABLE[0]);
 
 // Voltage drop compensation: farther digits get dimmer (especially blue).
 // Proportional boost ensures channels at 0 stay at 0 (no blue into pure red).
-#define VDROP_GENERAL_PER_DIGIT  5   // ~2% brightness boost per digit (in 1/256ths)
-#define VDROP_BLUE_PER_DIGIT     8   // ~3% extra blue boost per digit (in 1/256ths)
+#define VDROP_GENERAL_PER_DIGIT  10  // ~4% brightness boost per digit (in 1/256ths)
+#define VDROP_BLUE_PER_DIGIT     16  // ~6% extra blue boost per digit (in 1/256ths)
 
 static CRGB compensateVoltage(CRGB c, int digitPos) {
     if (digitPos <= 0) return c;
@@ -438,7 +438,7 @@ void LedDisplay::scrollCONN() {
 
 int LedDisplay::charToPattern(char c) {
     if (c >= '0' && c <= '9') return c - '0';
-    if (c >= 'a') c -= 32;  // to uppercase
+    if (c >= 'a' && c <= 'z') c -= 32;  // to uppercase
     switch (c) {
         case 'A': return CHAR_A;
         case 'B': return CHAR_b;
@@ -494,7 +494,7 @@ void LedDisplay::showCrazy() {
     static unsigned long lastUpdate = 0;
     static uint8_t hues[TOTAL_LEDS] = {};
     unsigned long now = millis();
-    if (now - lastUpdate >= 200) {
+    if (now - lastUpdate >= 180) {  // slightly faster than display refresh to avoid drift stutter
         lastUpdate = now;
         for (int i = 0; i < TOTAL_LEDS; i++) hues[i] = random(256);
     }
@@ -519,21 +519,25 @@ void LedDisplay::showPulse() {
 
     if (!transitioning) {
         displayHue = currentHue;
-        if (now - phaseStart >= 3000) {  // hold 3 seconds
+        if (now - phaseStart >= 23000) {  // hold 23 seconds
             transitioning = true;
             phaseStart = now;
         }
     } else {
         unsigned long elapsed = now - phaseStart;
-        const unsigned long sweepMs = 400;  // 400ms fast sweep
+        const unsigned long sweepMs = 3000;  // 3s smooth sweep
+        const uint8_t hueStep = 18;          // smaller steps = more colors visited
         if (elapsed >= sweepMs) {
-            currentHue += 30;  // land on next color (uint8_t wraps naturally)
+            currentHue += hueStep;
             displayHue = currentHue;
             transitioning = false;
             phaseStart = now;
         } else {
-            // Sweep through intermediate hues
-            displayHue = currentHue + (uint8_t)((30UL * elapsed) / sweepMs);
+            // Ease-in-out: smoothstep 3t²-2t³
+            uint32_t t256 = (elapsed * 256) / sweepMs;  // 0-255
+            uint32_t eased = (t256 * t256 * (768 - 2 * t256)) >> 16;  // smoothstep scaled
+            if (eased > 255) eased = 255;
+            displayHue = currentHue + (uint8_t)(((uint32_t)hueStep * eased) >> 8);
         }
     }
 

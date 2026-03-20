@@ -30,7 +30,7 @@ No toast. UI stays as the user set it. LEDs respond immediately.
 | Color dot | `color` | Instant LED change |
 | Custom color | `customcolor` | Instant LED change |
 | Brightness slider | `brightness` | Instant LED change, server also calls `setBrightness` directly |
-| Color mode | `colormode` | Static / Rainbow / Crazy / Wave |
+| Color mode | `colormode` | Static / Rainbow / Crazy / Pulse |
 | Mode switch | `mode` | Tab navigation |
 | LED test | `animate` | |
 | Clock format | `clockfmt` | HH:MM / MM:SS toggle |

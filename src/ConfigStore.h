@@ -4,6 +4,8 @@
 #include <Arduino.h>
 #include "Config.h"
 
+#define PREFS_NS "watchsettings"
+
 struct TabataSettings {
     uint16_t workSec = TABATA_DEFAULT_WORK_SEC;
     uint16_t restSec = TABATA_DEFAULT_REST_SEC;
@@ -51,7 +53,7 @@ struct WatchSettings {
 
     // Pomodoro intervals
     uint8_t pomodoroIntervals = POMODORO_INTERVALS;
-    // Color mode: 0=static, 1=rainbow, 2=crazy, 3=rainbow_wave
+    // Color mode: 0=static, 1=rainbow, 2=crazy, 3=pulse
     uint8_t colorMode = 0;
     // Birthday count (actual data in NVS)
     uint8_t birthdayCount = 0;

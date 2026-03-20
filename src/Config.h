@@ -14,7 +14,7 @@
 
 // === LED Defaults ===
 #define DEFAULT_BRIGHTNESS  100
-#define MAX_BRIGHTNESS      200
+#define MAX_BRIGHTNESS      230
 
 // === WiFi ===
 #define AP_SSID             "NeoTick"
@@ -29,6 +29,11 @@
 // === Web Server ===
 #define WEB_PORT            80
 #define WS_PATH             "/ws"
+
+// === Peer Discovery ===
+#define MDNS_SERVICE_NAME   "neotick"
+#define PEER_SCAN_INTERVAL  30000    // 30 seconds
+#define MAX_PEERS           4
 
 // === NVS Keys ===
 #define NVS_NAMESPACE       "watchcfg"
@@ -79,5 +84,10 @@ struct DSTRule {
 // === Pause Pulse ===
 #define PAUSE_PULSE_MIN_BRIGHT  15
 #define PAUSE_PULSE_SPEED_MS    30    // ms per brightness step
+
+// === Thermal Protection ===
+#define THERMAL_WARN_TEMP       60    // show warning in GUI
+#define THERMAL_THROTTLE_TEMP   65    // auto-reduce brightness
+#define THERMAL_THROTTLE_BRIGHT 80    // brightness cap when throttling
 
 #endif // CONFIG_H

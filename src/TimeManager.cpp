@@ -102,13 +102,14 @@ int TimeManager::get4Digit() const  { return getHours() * 100 + getMinutes(); }
 unsigned long TimeManager::getEpochTime() const { return m_ntpClient ? m_ntpClient->getEpochTime() : 0; }
 int TimeManager::getDay() const {
     if (!m_ntpClient) return 1;
-    time_t t = (time_t)m_ntpClient->getEpochTime() + m_tzOffset + (m_dstActive ? m_dstOffset : 0);
+    // getEpochTime() already includes timezone + DST offset via setTimeOffset
+    time_t t = (time_t)m_ntpClient->getEpochTime();
     struct tm ti; gmtime_r(&t, &ti);
     return ti.tm_mday;
 }
 int TimeManager::getMonth() const {
     if (!m_ntpClient) return 1;
-    time_t t = (time_t)m_ntpClient->getEpochTime() + m_tzOffset + (m_dstActive ? m_dstOffset : 0);
+    time_t t = (time_t)m_ntpClient->getEpochTime();
     struct tm ti; gmtime_r(&t, &ti);
     return ti.tm_mon + 1;
 }

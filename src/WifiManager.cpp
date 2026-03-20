@@ -195,6 +195,7 @@ void WifiManager::update() {
                 // Start mDNS so users can access via neotick.local
                 if (MDNS.begin("neotick")) {
                     MDNS.addService("http", "tcp", 80);
+                    MDNS.addService(MDNS_SERVICE_NAME, "tcp", 80);
                     Serial.println("mDNS: http://neotick.local");
                 }
                 Serial.printf("WiFi connected! IP: %s\n", WiFi.localIP().toString().c_str());
@@ -212,6 +213,9 @@ void WifiManager::update() {
                 Serial.println("WiFi lost, will reconnect...");
                 m_state = WIFI_STATE_RECONNECTING;
                 m_lastReconnectAttempt = 0;  // trigger immediate attempt
+            } else if (now - m_lastPeerScan > PEER_SCAN_INTERVAL) {
+                scanPeers();
+                m_lastPeerScan = now;
             }
             break;
 
@@ -238,7 +242,7 @@ void WifiManager::update() {
                 m_state = WIFI_STATE_CONNECTED;
                 m_wifiWasConnected = true;
                 m_justConnectedFlag = true;
-                if (MDNS.begin("neotick")) { MDNS.addService("http", "tcp", 80); }
+                if (MDNS.begin("neotick")) { MDNS.addService("http", "tcp", 80); MDNS.addService(MDNS_SERVICE_NAME, "tcp", 80); }
             }
             // Check if user submitted new credentials via portal
             else if (m_apCredsReceived) {
@@ -390,5 +394,21 @@ bool WifiManager::justConnected() {
 }
 
 void WifiManager::setWifiPowerSave(bool enable) {
-    esp_wifi_set_ps(WIFI_PS_NONE);
+    esp_wifi_set_ps(enable ? WIFI_PS_MIN_MODEM : WIFI_PS_NONE);
+}
+
+void WifiManager::scanPeers() {
+    int n = MDNS.queryService(MDNS_SERVICE_NAME, "tcp");
+    String myIP = WiFi.localIP().toString();
+    m_peerCount = 0;
+    for (int i = 0; i < n && m_peerCount < MAX_PEERS; i++) {
+        String peerIP = MDNS.IP(i).toString();
+        if (peerIP == myIP) continue;
+        m_peers[m_peerCount].ip = peerIP;
+        m_peers[m_peerCount].name = MDNS.hostname(i);
+        m_peerCount++;
+    }
+    if (m_peerCount > 0) {
+        Serial.printf("Peer scan: found %d peer(s)\n", m_peerCount);
+    }
 }
