@@ -5,6 +5,7 @@
 #define LED_DATA_PIN        4
 #define COLON_LED_PIN       23    // two "dumb" LEDs for seconds/colon indicator
 #define BUZZER_PIN          25
+#define BUZZER_LEDC_CH      0
 #define NUM_DIGITS          4
 #define NUM_LEDS_PER_DIGIT  29
 #define TOTAL_LEDS          (NUM_DIGITS * NUM_LEDS_PER_DIGIT)
@@ -29,6 +30,10 @@
 // === Web Server ===
 #define WEB_PORT            80
 #define WS_PATH             "/ws"
+#define WS_BROADCAST_FAST_MS   200   // active mode (stopwatch/tabata)
+#define WS_BROADCAST_SLOW_MS   500   // idle mode
+#define WS_FULL_BROADCAST_MS   30000 // periodic full state sync
+#define NVS_SAVE_DELAY_MS      2000  // debounce for settings writes
 
 // === Peer Discovery ===
 #define MDNS_SERVICE_NAME   "neotick"

@@ -804,8 +804,8 @@ void WebUI::handleWebSocketMessage(AsyncWebSocketClient* client, uint8_t* data, 
     String cmd = msg.substring(vs + 1, ve);
 
     if (cmd == "color") { int i = extractInt(msg, "index"); if (i >= 0 && i < m_display->getColorCount()) { m_display->setColorByIndex(i); m_settings->colorIndex = i; m_pendingSave = millis(); } }
-    else if (cmd == "customcolor") { int r = extractInt(msg, "r"), g = extractInt(msg, "g"), b = extractInt(msg, "b"); m_display->setColor(CRGB(r, g, b)); m_settings->colorIndex = -1; m_settings->customR = r; m_settings->customG = g; m_settings->customB = b; m_pendingSave = millis(); }
-    else if (cmd == "brightness") { int v = extractInt(msg, "value"); if (v >= 0) { m_display->setBrightness(v); m_settings->brightness = v; m_pendingSave = millis(); } }
+    else if (cmd == "customcolor") { int r = extractInt(msg, "r"), g = extractInt(msg, "g"), b = extractInt(msg, "b"); if (r >= 0 && r <= 255 && g >= 0 && g <= 255 && b >= 0 && b <= 255) { m_display->setColor(CRGB(r, g, b)); m_settings->colorIndex = -1; m_settings->customR = r; m_settings->customG = g; m_settings->customB = b; m_pendingSave = millis(); } }
+    else if (cmd == "brightness") { int v = extractInt(msg, "value"); if (v >= 0 && v <= MAX_BRIGHTNESS) { m_display->setBrightness(v); m_settings->brightness = v; m_pendingSave = millis(); } }
     else if (cmd == "mode") { int v = extractInt(msg, "value"); if (v >= 0 && v <= 4) m_mode = (DisplayMode)v; }
     else if (cmd == "clockfmt") { m_settings->clockShowMMSS = extractBool(msg, "mmss"); m_pendingSave = millis(); }
     else if (cmd == "sw") { String a = extractString(msg, "action"); if (a == "start") stopwatchStart(); else if (a == "restart") stopwatchRestart(); else if (a == "stop") stopwatchStop(); else if (a == "reset") stopwatchReset(); }
@@ -820,7 +820,7 @@ void WebUI::handleWebSocketMessage(AsyncWebSocketClient* client, uint8_t* data, 
     else if (cmd == "colon") { m_settings->colonLedsEnabled = extractBool(msg, "enabled"); m_pendingSave = millis(); }
     else if (cmd == "colormode") { int v = extractInt(msg, "value"); if (v >= 0 && v <= 3) { m_settings->colorMode = v; m_pendingSave = millis(); } }
     else if (cmd == "animtoggle") { m_settings->animateTransitions = extractBool(msg, "value"); m_pendingSave = millis(); }
-    else if (cmd == "nightshift") { m_settings->nightShiftEnabled = extractBool(msg, "enabled"); m_settings->nightShiftStartHour = extractInt(msg, "start"); m_settings->nightShiftEndHour = extractInt(msg, "end"); m_settings->nightShiftBrightness = extractInt(msg, "bright"); m_pendingSave = millis(); }
+    else if (cmd == "nightshift") { m_settings->nightShiftEnabled = extractBool(msg, "enabled"); int sh = extractInt(msg, "start"), eh = extractInt(msg, "end"), nb = extractInt(msg, "bright"); if (sh >= 0 && sh <= 23) m_settings->nightShiftStartHour = sh; if (eh >= 0 && eh <= 23) m_settings->nightShiftEndHour = eh; if (nb >= 0 && nb <= MAX_BRIGHTNESS) m_settings->nightShiftBrightness = nb; m_pendingSave = millis(); }
     else if (cmd == "pom") { String a = extractString(msg, "action"); if (a == "start") pomodoroStart(); else if (a == "stop") pomodoroStop(); else if (a == "reset") pomodoroReset(); }
     else if (cmd == "pom_cfg") { int n = extractInt(msg, "intervals"); if (n > 0 && n <= 8) { m_settings->pomodoroIntervals = n; m_pendingSave = millis(); } }
     else if (cmd == "datedisp") { m_settings->showDateEnabled = extractBool(msg, "enabled"); int iv = extractInt(msg, "interval"); if (iv > 0) m_settings->showDateIntervalSec = iv; m_pendingSave = millis(); }
@@ -932,10 +932,12 @@ String WebUI::buildStateJSON() {
     j += ",\"ssid\":\""; j += WiFi.SSID(); j += "\"";
     j += ",\"ip\":\""; j += WiFi.localIP().toString(); j += "\"";
     j += ",\"peers\":[";
-    for (int i = 0; i < m_wifiMgr->getPeerCount(); i++) {
-        if (i > 0) j += ",";
-        j += "{\"ip\":\""; j += m_wifiMgr->getPeer(i).ip;
-        j += "\",\"name\":\""; j += m_wifiMgr->getPeer(i).name; j += "\"}";
+    if (m_wifiMgr) {
+        for (int i = 0; i < m_wifiMgr->getPeerCount(); i++) {
+            if (i > 0) j += ",";
+            j += "{\"ip\":\""; j += m_wifiMgr->getPeer(i).ip;
+            j += "\",\"name\":\""; j += m_wifiMgr->getPeer(i).name; j += "\"}";
+        }
     }
     j += "]}";
     return j;
@@ -1025,12 +1027,12 @@ void WebUI::update() {
 
     // Deferred NVS save: batch all changes, write once 2 seconds after last change
     unsigned long now = millis();
-    if (m_pendingSave > 0 && now - m_pendingSave >= 2000) {
+    if (m_pendingSave > 0 && now - m_pendingSave >= NVS_SAVE_DELAY_MS) {
         m_pendingSave = 0;
         m_configStore->save(*m_settings);  // single NVS write for all settings
     }
 
-    unsigned long iv = (m_swRunning || m_tabRunning) ? 200 : 500;
+    unsigned long iv = (m_swRunning || m_tabRunning) ? WS_BROADCAST_FAST_MS : WS_BROADCAST_SLOW_MS;
     if (now - m_lastBroadcast >= iv) { m_lastBroadcast = now; broadcastState(); m_ws->cleanupClients(); }
-    if (now - m_lastFullBroadcast >= 30000) { m_lastFullBroadcast = now; if (m_ws && m_ws->count() > 0) m_ws->textAll(buildStateJSON()); }
+    if (now - m_lastFullBroadcast >= WS_FULL_BROADCAST_MS) { m_lastFullBroadcast = now; if (m_ws && m_ws->count() > 0) m_ws->textAll(buildStateJSON()); }
 }

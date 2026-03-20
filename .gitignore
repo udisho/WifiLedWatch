@@ -2,6 +2,12 @@
 .pio/
 .vscode/
 
+# Build artifacts
+*.bin
+
+# macOS
+.DS_Store
+
 # Prerequisites
 *.d
 

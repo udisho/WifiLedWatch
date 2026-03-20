@@ -258,7 +258,6 @@ void LedDisplay::pulseBrightness() {
     }
     FastLED.setBrightness(PAUSE_PULSE_MIN_BRIGHT);
     safeShow();
-    delay(100);
     // Dim up
     for (int b = PAUSE_PULSE_MIN_BRIGHT; b <= origBright; b += 3) {
         FastLED.setBrightness(b);

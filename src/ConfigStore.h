@@ -22,9 +22,9 @@ struct Birthday {
 
 struct TabataPreset {
     char name[16] = {0};
-    uint16_t workSec = 20;
-    uint16_t restSec = 10;
-    uint8_t  intervals = 8;
+    uint16_t workSec = TABATA_DEFAULT_WORK_SEC;
+    uint16_t restSec = TABATA_DEFAULT_REST_SEC;
+    uint8_t  intervals = TABATA_DEFAULT_INTERVALS;
 };
 
 struct WatchSettings {

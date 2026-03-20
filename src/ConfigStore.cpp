@@ -222,8 +222,8 @@ void ConfigStore::loadTabataPreset(int index, TabataPreset& preset) {
     Preferences prefs; prefs.begin(PREFS_NS, true);
     char k[10];
     snprintf(k, sizeof(k), "tp%dn", index); prefs.getString(k, preset.name, sizeof(preset.name));
-    snprintf(k, sizeof(k), "tp%dw", index); preset.workSec = prefs.getUShort(k, 20);
-    snprintf(k, sizeof(k), "tp%dr", index); preset.restSec = prefs.getUShort(k, 10);
-    snprintf(k, sizeof(k), "tp%di", index); preset.intervals = prefs.getUChar(k, 8);
+    snprintf(k, sizeof(k), "tp%dw", index); preset.workSec = prefs.getUShort(k, TABATA_DEFAULT_WORK_SEC);
+    snprintf(k, sizeof(k), "tp%dr", index); preset.restSec = prefs.getUShort(k, TABATA_DEFAULT_REST_SEC);
+    snprintf(k, sizeof(k), "tp%di", index); preset.intervals = prefs.getUChar(k, TABATA_DEFAULT_INTERVALS);
     prefs.end();
 }

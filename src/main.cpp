@@ -25,6 +25,7 @@ int lastBirthdayHour = -1;
 #define CLOCK_REFRESH_MS     200
 #define STOPWATCH_REFRESH_MS  50
 #define TABATA_REFRESH_MS     50
+#define POMODORO_REFRESH_MS   50
 #define TIMER_REFRESH_MS     100
 
 // Night shift helper — shared by colon, brightness, clockwork, date display
@@ -55,18 +56,18 @@ uint8_t buzzVol() { return settings.buzzerLevel == 1 ? 40 : 128; } // low=40, hi
 
 void playBuzzer() {
     uint8_t v = buzzVol();
-    ledcWriteTone(0, 1000); ledcWrite(0, v); delay(200);
-    ledcWrite(0, 0); delay(100);
-    ledcWriteTone(0, 1500); ledcWrite(0, v); delay(200);
-    ledcWrite(0, 0); delay(100);
-    ledcWriteTone(0, 2000); ledcWrite(0, v); delay(400);
-    ledcWrite(0, 0);
+    ledcWriteTone(BUZZER_LEDC_CH, 1000); ledcWrite(BUZZER_LEDC_CH, v); delay(200);
+    ledcWrite(BUZZER_LEDC_CH, 0); delay(100);
+    ledcWriteTone(BUZZER_LEDC_CH, 1500); ledcWrite(BUZZER_LEDC_CH, v); delay(200);
+    ledcWrite(BUZZER_LEDC_CH, 0); delay(100);
+    ledcWriteTone(BUZZER_LEDC_CH, 2000); ledcWrite(BUZZER_LEDC_CH, v); delay(400);
+    ledcWrite(BUZZER_LEDC_CH, 0);
 }
 
 void playPhaseBeep(bool isWork) {
     uint8_t v = buzzVol();
-    ledcWriteTone(0, isWork ? 2000 : 800); ledcWrite(0, v); delay(150);
-    ledcWrite(0, 0);
+    ledcWriteTone(BUZZER_LEDC_CH, isWork ? 2000 : 800); ledcWrite(BUZZER_LEDC_CH, v); delay(150);
+    ledcWrite(BUZZER_LEDC_CH, 0);
 }
 
 void setup() {
@@ -80,9 +81,9 @@ void setup() {
     ledDisplay.begin();
     ledDisplay.setBrightness(settings.brightness);
     // Buzzer setup
-    ledcSetup(0, 1000, 8);
-    ledcAttachPin(BUZZER_PIN, 0);
-    ledcWrite(0, 0);  // silence immediately
+    ledcSetup(BUZZER_LEDC_CH, 1000, 8);
+    ledcAttachPin(BUZZER_PIN, BUZZER_LEDC_CH);
+    ledcWrite(BUZZER_LEDC_CH, 0);  // silence immediately
     if (settings.colorIndex >= 0) ledDisplay.setColorByIndex(settings.colorIndex);
     else ledDisplay.setColor(CRGB(settings.customR, settings.customG, settings.customB));
 
@@ -315,7 +316,7 @@ void loop() {
         }
 
         case MODE_POMODORO: {
-            if (now - lastDisplayUpdate >= TABATA_REFRESH_MS) {
+            if (now - lastDisplayUpdate >= POMODORO_REFRESH_MS) {
                 lastDisplayUpdate = now;
                 if (webUI.isPomodoroDone()) {
                     static bool pf = false; pf = !pf;
@@ -373,8 +374,8 @@ void loop() {
                 if (chimes == 0) chimes = 12;
                 uint8_t v = buzzVol();
                 for (int i = 0; i < chimes; i++) {
-                    ledcWriteTone(0, 1200); ledcWrite(0, v); delay(120);
-                    ledcWrite(0, 0); delay(180);
+                    ledcWriteTone(BUZZER_LEDC_CH, 1200); ledcWrite(BUZZER_LEDC_CH, v); delay(120);
+                    ledcWrite(BUZZER_LEDC_CH, 0); delay(180);
                 }
             } else {
                 lastChimeHour = h;  // skip but mark so we don't retry
