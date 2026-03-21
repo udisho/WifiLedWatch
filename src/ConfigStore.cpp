@@ -49,6 +49,12 @@ void ConfigStore::load(WatchSettings& s) {
     s.colorMode           = prefs.getUChar("clrMode", 0);
     s.birthdayCount       = prefs.getUChar("bdCnt", 0);
 
+    s.showTempEnabled     = prefs.getBool("tempEn", false);
+    s.tempFeelsLike       = prefs.getBool("tempFL", false);
+    s.tempColorByValue    = prefs.getBool("tempClr", false);
+    s.weatherLat          = prefs.getFloat("wLat", 0);
+    s.weatherLon          = prefs.getFloat("wLon", 0);
+
     prefs.end();
 }
 
@@ -95,6 +101,12 @@ void ConfigStore::save(const WatchSettings& s) {
     prefs.putUChar("pomInt", s.pomodoroIntervals);
     prefs.putUChar("clrMode", s.colorMode);
     prefs.putUChar("bdCnt", s.birthdayCount);
+
+    prefs.putBool("tempEn", s.showTempEnabled);
+    prefs.putBool("tempFL", s.tempFeelsLike);
+    prefs.putBool("tempClr", s.tempColorByValue);
+    prefs.putFloat("wLat", s.weatherLat);
+    prefs.putFloat("wLon", s.weatherLon);
 
     prefs.end();
 }
@@ -225,5 +237,12 @@ void ConfigStore::loadTabataPreset(int index, TabataPreset& preset) {
     snprintf(k, sizeof(k), "tp%dw", index); preset.workSec = prefs.getUShort(k, TABATA_DEFAULT_WORK_SEC);
     snprintf(k, sizeof(k), "tp%dr", index); preset.restSec = prefs.getUShort(k, TABATA_DEFAULT_REST_SEC);
     snprintf(k, sizeof(k), "tp%di", index); preset.intervals = prefs.getUChar(k, TABATA_DEFAULT_INTERVALS);
+    prefs.end();
+}
+
+void ConfigStore::saveWeather(bool tempEnabled, bool feelsLike) {
+    Preferences prefs; prefs.begin(PREFS_NS, false);
+    prefs.putBool("tempEn", tempEnabled);
+    prefs.putBool("tempFL", feelsLike);
     prefs.end();
 }

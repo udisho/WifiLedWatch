@@ -1,6 +1,7 @@
 #ifndef WEB_UI_H
 #define WEB_UI_H
 
+#include <cmath>
 #include <ESPAsyncWebServer.h>
 #include <AsyncTCP.h>
 #include "Config.h"
@@ -21,6 +22,7 @@ public:
     // Set what the physical display is currently showing (called by main.cpp)
     void setDisplayValue(int value) { m_displayValue = value; }
     void setDisplayBlank(bool blank) { m_displayBlank = blank; }
+    void setDisplayTemp(bool isTemp) { m_displayTemp = isTemp; }
     int getDisplayValue() const { return m_displayValue; }
     bool isDisplayBlank() const { return m_displayBlank; }
 
@@ -31,6 +33,10 @@ public:
 
     // Buzzer test (consumed by main loop)
     bool shouldTestBuzzer() { bool v = m_buzzerTestRequested; m_buzzerTestRequested = false; return v; }
+
+    // Weather temperature (set by main loop, read by state JSON)
+    void setCurrentTemp(float actual, float feels) { m_currentTemp = actual; m_currentFeelsLike = feels; }
+    void setWeatherCity(const char* city) { m_weatherCity = city ? city : ""; }
 
     // Stopwatch
     bool isStopwatchRunning() const { return m_swRunning; }
@@ -118,11 +124,15 @@ private:
     // Display mirror
     int m_displayValue = 0;
     bool m_displayBlank = false;
+    bool m_displayTemp = false;
 
     // Animation
     bool m_animationRequested = false;
     bool m_animating = false;
     bool m_buzzerTestRequested = false;
+    float m_currentTemp = NAN;
+    float m_currentFeelsLike = NAN;
+    String m_weatherCity;
 
     // Deferred NVS save (avoid flooding on rapid changes)
     unsigned long m_pendingSave = 0;

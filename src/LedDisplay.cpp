@@ -2,7 +2,7 @@
 #include <Arduino.h>
 
 // Segment groups: top=8,9,10,11 UL=12,13,14,15 UR=4,5,6,7 mid=0,1,2,3 LL=17,18,19,20 LR=25,26,27,28 bot=21,22,23,24
-#define PAT_COUNT 29
+#define PAT_COUNT 31
 static const unsigned int DIGIT_PATTERNS[PAT_COUNT][28] = {
     // 0-9: digits
     { 11, 10,  9,  8,  7,  6,  5,  4, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 15, 14, 13, 12, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED }, // 0
@@ -36,6 +36,8 @@ static const unsigned int DIGIT_PATTERNS[PAT_COUNT][28] = {
     { 12, 13, 14, 15,  4,  5,  6,  7, 17, 18, 19, 20, 25, 26, 27, 28, 21, 22, 23, 24, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED }, // U (26) = UL+UR+LL+LR+bot
     { 12, 13, 14, 15,  4,  5,  6,  7,  0,  1,  2,  3, 25, 26, 27, 28, 21, 22, 23, 24, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED }, // Y (27) = UL+UR+mid+LR+bot
     { LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED }, // SPACE (28) = blank
+    {  0,  1,  2,  3, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED }, // MINUS (29) = mid only
+    {  8,  9, 10, 11, 12, 13, 14, 15,  4,  5,  6,  7,  0,  1,  2,  3, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED, LED_UNUSED }, // DEGREE (30) = top+UL+UR+mid
 };
 
 #define CHAR_C 10
@@ -57,6 +59,8 @@ static const unsigned int DIGIT_PATTERNS[PAT_COUNT][28] = {
 #define CHAR_U 26
 #define CHAR_Y 27
 #define CHAR_SPACE 28
+#define CHAR_MINUS 29
+#define CHAR_DEG   30
 
 const ColorEntry COLOR_TABLE[] = {
     { CRGB::Red, "Red" }, { CRGB::Green, "Green" }, { CRGB::Blue, "Blue" },
@@ -120,6 +124,37 @@ void LedDisplay::showOneDigit(int digitPos, int charIndex) {
 void LedDisplay::renderNumber(int number) {
     fill_solid(m_leds, TOTAL_LEDS, CRGB::Black);
     for (int i = NUM_DIGITS - 1; i >= 0; --i) { showOneDigit(i, number % 10); number /= 10; }
+}
+
+void LedDisplay::renderTemp(int tempC) {
+    // Positive: "D D ° _" (e.g., "14° "), single digit: " 5° "
+    // Negative: "- D D °" (e.g., "-14°"), single digit: "- 5 °"... actually "-5° "
+    fill_solid(m_leds, TOTAL_LEDS, CRGB::Black);
+    bool neg = tempC < 0;
+    int abs_t = neg ? -tempC : tempC;
+    if (abs_t > 99) abs_t = 99;
+
+    if (neg) {
+        // -DD° or -D°_
+        showOneDigit(0, CHAR_MINUS);
+        if (abs_t >= 10) {
+            showOneDigit(1, abs_t / 10);
+            showOneDigit(2, abs_t % 10);
+            showOneDigit(3, CHAR_DEG);
+        } else {
+            showOneDigit(1, abs_t);
+            showOneDigit(2, CHAR_DEG);
+        }
+    } else {
+        // DD°_ or _D°_
+        if (abs_t >= 10) {
+            showOneDigit(0, abs_t / 10);
+            showOneDigit(1, abs_t % 10);
+        } else {
+            showOneDigit(1, abs_t);
+        }
+        showOneDigit(2, CHAR_DEG);
+    }
 }
 
 void LedDisplay::forceShow() { safeShow(); }

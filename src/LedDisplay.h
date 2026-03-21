@@ -30,6 +30,7 @@ public:
 
     void showNumber(int number);
     void renderNumber(int number);  // fill LED buffer without showing
+    void renderTemp(int tempC);     // "C 23" or "C  5" or "C-3"
     void forceShow();               // explicit safeShow()
     void showNumberAnimated(int number);
     void showNumberFadeAnimated(int number, bool allDigits = false);

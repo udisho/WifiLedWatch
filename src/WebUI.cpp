@@ -310,10 +310,31 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
   </div>
 
 
-  <div class="sec-hdr" onclick="togSec(this)"><h3>Date Display</h3><span class="arr">&#9660;</span></div>
+  <div class="sec-hdr" onclick="togSec(this)"><h3>Info Display</h3><span class="arr">&#9660;</span></div>
   <div class="sec-body">
-    <div class="toggle-row"><span>Show date periodically</span><label class="toggle"><input type="checkbox" id="dateToggle" onchange="saveDate()"><span class="slider"></span></label></div>
-    <div class="slider-row"><label>Interval</label><input type="range" id="dateIntSlider" min="10" max="120" value="30" onchange="saveDate()"><span class="val" id="dateIntVal">30</span><span style="font-size:11px;color:var(--text2)">sec</span></div>
+    <div class="toggle-row"><span>Show date</span><label class="toggle"><input type="checkbox" id="dateToggle" onchange="saveInfo()"><span class="slider"></span></label></div>
+    <div class="toggle-row"><span>Show temperature</span><label class="toggle"><input type="checkbox" id="tempToggle" onchange="saveInfo()"><span class="slider"></span></label></div>
+    <div class="slider-row"><label>Interval</label><input type="range" id="dateIntSlider" min="10" max="120" value="30" onchange="saveInfo()"><span class="val" id="dateIntVal">30</span><span style="font-size:11px;color:var(--text2)">sec</span></div>
+    <div style="margin-top:8px">
+      <div class="radio-group">
+        <label><input type="radio" name="tempType" value="0" checked onchange="saveInfo()">Actual</label>
+        <label><input type="radio" name="tempType" value="1" onchange="saveInfo()">Feels like</label>
+      </div>
+      <div class="toggle-row"><span>Color by temperature</span><label class="toggle"><input type="checkbox" id="tempClrToggle" onchange="saveInfo()"><span class="slider"></span></label></div>
+      <div id="tempReadout" style="font-size:12px;color:var(--accent);margin-top:6px"></div>
+      <div style="margin-top:6px">
+        <select id="locSelect" style="width:100%;padding:8px;border-radius:8px;border:1px solid #333;background:var(--btn);color:var(--text);font-size:13px" onchange="setLoc()">
+          <option value="auto">Auto (IP)</option>
+          <option value="other">Other (lat/lon)...</option>
+        </select>
+        <div id="locManual" style="display:none;margin-top:6px;gap:6px;align-items:center">
+          <input type="number" id="locLat" placeholder="Lat" step="0.01" style="width:45%;padding:6px;border-radius:6px;border:1px solid #333;background:var(--btn);color:var(--text);font-size:12px">
+          <input type="number" id="locLon" placeholder="Lon" step="0.01" style="width:45%;padding:6px;border-radius:6px;border:1px solid #333;background:var(--btn);color:var(--text);font-size:12px">
+          <button class="btn btn-primary" style="padding:6px 10px;font-size:11px" onclick="saveManualLoc()">Set</button>
+        </div>
+      </div>
+      <div id="locStatus" style="font-size:11px;color:var(--text2);margin-top:4px"></div>
+    </div>
   </div>
 
 
@@ -431,10 +452,13 @@ const TZ=[
 ];
 let ws,st={},firstState=true,wheelsInit=false,lastMode=-1,saving=false,prev={};
 const SEG=[0x7E,0x30,0x6D,0x79,0x33,0x5B,0x5F,0x70,0x7F,0x7B];
+const SEG_DEG=0x63;
 const SEGS='abcdefg';
 function initSegs(){for(let i=0;i<4;i++){const el=document.getElementById('sd'+i);el.innerHTML='';SEGS.split('').forEach(s=>{const sp=document.createElement('span');sp.className=s;el.appendChild(sp);});}}
 function setDigit(idx,val){const el=document.getElementById('sd'+idx);if(!el)return;const bits=val>=0&&val<=9?SEG[val]:0;const spans=el.querySelectorAll('span');SEGS.split('').forEach((s,i)=>{spans[i].classList.toggle('on',!!(bits&(0x40>>i)));});}
-function updateSeg(){if(st.dv===undefined)return;const v=st.dv;if(st.db){setDigit(0,-1);setDigit(1,-1);setDigit(2,-1);setDigit(3,-1);}else{setDigit(0,Math.floor(v/1000)%10);setDigit(1,Math.floor(v/100)%10);setDigit(2,Math.floor(v/10)%10);setDigit(3,v%10);}}
+function setDigitRaw(idx,bits){const el=document.getElementById('sd'+idx);if(!el)return;const spans=el.querySelectorAll('span');SEGS.split('').forEach((s,i)=>{spans[i].classList.toggle('on',!!(bits&(0x40>>i)));});}
+const SEG_MINUS=0x01;
+function updateSeg(){if(st.dv===undefined)return;const v=st.dv;if(st.db){setDigit(0,-1);setDigit(1,-1);setDigit(2,-1);setDigit(3,-1);}else if(st.dt){var neg=v<0,abs=Math.abs(v);if(abs>99)abs=99;if(neg){setDigitRaw(0,SEG_MINUS);if(abs>=10){setDigit(1,Math.floor(abs/10));setDigit(2,abs%10);setDigitRaw(3,SEG_DEG);}else{setDigit(1,abs);setDigitRaw(2,SEG_DEG);setDigit(3,-1);}}else{if(abs>=10){setDigit(0,Math.floor(abs/10));setDigit(1,abs%10);}else{setDigit(0,-1);setDigit(1,abs);}setDigitRaw(2,SEG_DEG);setDigit(3,-1);}}else{setDigit(0,Math.floor(v/1000)%10);setDigit(1,Math.floor(v/100)%10);setDigit(2,Math.floor(v/10)%10);setDigit(3,v%10);}}
 function hslStr(h,s,l){return 'hsl('+h+','+s+'%,'+l+'%)';}
 var crazyHues=[0,0,0,0],lastCrazyT=0,pulseHue=0,pulsePhaseStart=0,pulseTransitioning=false;
 function animSegColors(){var now=Date.now();if(st.clrMode===2){if(now-lastCrazyT>200){lastCrazyT=now;for(var i=0;i<4;i++)crazyHues[i]=Math.floor(Math.random()*360);}for(var i=0;i<4;i++)document.getElementById('sd'+i).style.setProperty('--clr',hslStr(crazyHues[i],100,50));}else if(st.clrMode===3){if(!pulsePhaseStart)pulsePhaseStart=now;var h;if(!pulseTransitioning){h=pulseHue;if(now-pulsePhaseStart>=23000){pulseTransitioning=true;pulsePhaseStart=now;}}else{var el=now-pulsePhaseStart;if(el>=3000){pulseHue=(pulseHue+25)%360;h=pulseHue;pulseTransitioning=false;pulsePhaseStart=now;}else{var t=el/3000;var e=t*t*(3-2*t);h=(pulseHue+Math.floor(25*e))%360;}}for(var i=0;i<4;i++)document.getElementById('sd'+i).style.setProperty('--clr',hslStr(h,100,50));}}
@@ -485,6 +509,7 @@ function init(){
   document.getElementById('pomIntSlider').oninput=function(){document.getElementById('pomIntVal').textContent=this.value;};
   document.getElementById('dateIntSlider').oninput=function(){document.getElementById('dateIntVal').textContent=this.value;};
   initPeerColorGrid();
+  initCities();
   connectWS();
 }
 function connectWS(){
@@ -599,7 +624,10 @@ function updateUI(){var _sy=window.pageYOffset;
     if(st.pomRun!==prev.pomRun||st.pomDone!==prev.pomDone){prev.pomRun=st.pomRun;prev.pomDone=st.pomDone;document.getElementById('pomReset2').style.display=(!st.pomRun&&(st.pomMs>0||st.pomDone))?'':'none';}
   }
   if(st.pomTotal!==undefined&&st.full){document.getElementById('pomIntSlider').value=st.pomTotal;document.getElementById('pomIntVal').textContent=st.pomTotal;}
-  if(st.dateEn!==undefined&&st.full){document.getElementById('dateToggle').checked=st.dateEn;document.getElementById('dateIntSlider').value=st.dateInt||30;document.getElementById('dateIntVal').textContent=st.dateInt||30;}
+  if(st.dateEn!==undefined&&st.full){document.getElementById('dateToggle').checked=st.dateEn;document.getElementById('dateIntSlider').value=st.dateInt||30;document.getElementById('dateIntVal').textContent=st.dateInt||30;document.getElementById('tempToggle').checked=st.tempEn;var tr=document.querySelector('input[name=tempType][value="'+(st.tempFL?'1':'0')+'"]');if(tr)tr.checked=true;document.getElementById('tempClrToggle').checked=st.tempClr;}
+  if(st.curTemp!==undefined){var el=document.getElementById('tempReadout');var txt='';if(st.curTemp!==null)txt='Actual: '+st.curTemp.toFixed(1)+'°C | Feels like: '+st.curFL.toFixed(1)+'°C';if(st.wLoc)txt+=' ('+st.wLoc+')';el.textContent=txt;}
+  if(st.full){var sel=document.getElementById('locSelect');if(st.wLat){var key=st.wLat.toFixed(2)+','+st.wLon.toFixed(2);sel.value=key;if(!sel.value||sel.value==='auto'){sel.value='other';document.getElementById('locManual').style.display='flex';document.getElementById('locLat').value=st.wLat;document.getElementById('locLon').value=st.wLon;}document.getElementById('locStatus').textContent='Location set'+(st.wLoc?' ('+st.wLoc+')':'');}else{sel.value='auto';}}
+
   if(st.colonEn!==undefined&&st.full)document.getElementById('colonToggle').checked=st.colonEn;
   if(st.buzzLv!==undefined&&st.full){var r=document.querySelector('input[name=buzz][value="'+st.buzzLv+'"]');if(r)r.checked=true;}
   if(st.cwBuzz!==undefined&&st.full)document.getElementById('cwToggle').checked=st.cwBuzz;
@@ -646,7 +674,11 @@ function applyCustomColor(){const h=document.getElementById('customColor').value
 function saveNightShift(){sendSave({cmd:'nightshift',enabled:document.getElementById('nsToggle').checked,start:+document.getElementById('nsStart').value,end:+document.getElementById('nsEnd').value,bright:+document.getElementById('nsBright').value});}
 function pomToggle(){if(st.pomRun)send({cmd:'pom',action:'stop'});else send({cmd:'pom',action:'start'});}
 function savePomInt(){send({cmd:'pom_cfg',intervals:+document.getElementById('pomIntSlider').value});}
-function saveDate(){sendSave({cmd:'datedisp',enabled:document.getElementById('dateToggle').checked,interval:+document.getElementById('dateIntSlider').value});}
+const CITIES=[['Jerusalem',31.77,35.22],['Tel Aviv',32.08,34.78],['Haifa',32.79,34.99],['Beer Sheva',31.25,34.79],['Rishon LeZion',31.96,34.80],['Petah Tikva',32.09,34.89],['Ashdod',31.80,34.65],['Netanya',32.33,34.86],['Holon',32.02,34.78],['Bnei Brak',32.09,34.83],['Ramat Gan',32.07,34.82],['Rehovot',31.90,34.81],['Ashkelon',31.67,34.57],['Bat Yam',32.02,34.75],['Herzliya',32.16,34.84],['Kfar Saba',32.18,34.91],['Hadera',32.44,34.92],['Modiin',31.90,35.01],['Nazareth',32.70,35.30],['Eilat',29.56,34.95],['Raanana',32.18,34.87],['Tiberias',32.79,35.53],['Acre',32.93,35.07],['Nahariya',33.01,35.10],['Kiryat Gat',31.61,34.76],['Afula',32.61,35.29],['Carmiel',32.91,35.30],['Arad',31.26,35.21]];
+function initCities(){var s=document.getElementById('locSelect');var other=s.lastChild;CITIES.sort(function(a,b){return a[0].localeCompare(b[0]);}).forEach(function(c){var o=document.createElement('option');o.value=c[1]+','+c[2];o.textContent=c[0];s.insertBefore(o,other);});}
+function setLoc(){var v=document.getElementById('locSelect').value;document.getElementById('locManual').style.display=v==='other'?'flex':'none';if(v==='auto'){sendSave({cmd:'setloc',lat:0,lon:0});document.getElementById('locStatus').textContent='Using auto-detect';}else if(v!=='other'){var p=v.split(',');sendSave({cmd:'setloc',lat:parseFloat(p[0]),lon:parseFloat(p[1])});document.getElementById('locStatus').textContent='Saved';}}
+function saveManualLoc(){var la=parseFloat(document.getElementById('locLat').value),lo=parseFloat(document.getElementById('locLon').value);if(la&&lo){sendSave({cmd:'setloc',lat:la,lon:lo});document.getElementById('locStatus').textContent='Saved ('+la.toFixed(2)+', '+lo.toFixed(2)+')';}}
+function saveInfo(){sendSave({cmd:'datedisp',enabled:document.getElementById('dateToggle').checked,interval:+document.getElementById('dateIntSlider').value,tempEn:document.getElementById('tempToggle').checked,feelsLike:document.querySelector('input[name=tempType]:checked').value==='1',tempClr:document.getElementById('tempClrToggle').checked});}
 function addBday(){var n=document.getElementById('bdayName').value,d=+document.getElementById('bdayDay').value,m=+document.getElementById('bdayMon').value;if(n&&d&&m)sendSave({cmd:'bday_add',name:n,day:d,month:m});document.getElementById('bdayName').value='';}
 function delBday(i){sendSave({cmd:'bday_del',index:i});}
 function loadTabPreset(){sendSave({cmd:'tab_preset_load',index:+document.getElementById('tabPresetSel').value});}
@@ -793,6 +825,13 @@ static bool extractBool(const String& json, const char* key) {
     int end = (c >= 0 && c < e) ? c : e;
     return json.substring(p, end).indexOf("true") >= 0;
 }
+static float extractFloat(const String& json, const char* key) {
+    String s = String("\"") + key + "\""; int p = json.indexOf(s); if (p < 0) return 0;
+    p = json.indexOf(':', p); if (p < 0) return 0; p++;
+    while (p < (int)json.length() && json[p] == ' ') p++;
+    String n; while (p < (int)json.length() && (json[p] == '-' || json[p] == '.' || (json[p] >= '0' && json[p] <= '9'))) n += json[p++];
+    return n.toFloat();
+}
 
 // ======================== WebSocket Handler ========================
 void WebUI::handleWebSocketMessage(AsyncWebSocketClient* client, uint8_t* data, size_t len) {
@@ -823,7 +862,8 @@ void WebUI::handleWebSocketMessage(AsyncWebSocketClient* client, uint8_t* data, 
     else if (cmd == "nightshift") { m_settings->nightShiftEnabled = extractBool(msg, "enabled"); int sh = extractInt(msg, "start"), eh = extractInt(msg, "end"), nb = extractInt(msg, "bright"); if (sh >= 0 && sh <= 23) m_settings->nightShiftStartHour = sh; if (eh >= 0 && eh <= 23) m_settings->nightShiftEndHour = eh; if (nb >= 0 && nb <= MAX_BRIGHTNESS) m_settings->nightShiftBrightness = nb; m_pendingSave = millis(); }
     else if (cmd == "pom") { String a = extractString(msg, "action"); if (a == "start") pomodoroStart(); else if (a == "stop") pomodoroStop(); else if (a == "reset") pomodoroReset(); }
     else if (cmd == "pom_cfg") { int n = extractInt(msg, "intervals"); if (n > 0 && n <= 8) { m_settings->pomodoroIntervals = n; m_pendingSave = millis(); } }
-    else if (cmd == "datedisp") { m_settings->showDateEnabled = extractBool(msg, "enabled"); int iv = extractInt(msg, "interval"); if (iv > 0) m_settings->showDateIntervalSec = iv; m_pendingSave = millis(); }
+    else if (cmd == "datedisp") { m_settings->showDateEnabled = extractBool(msg, "enabled"); m_settings->showTempEnabled = extractBool(msg, "tempEn"); m_settings->tempFeelsLike = extractBool(msg, "feelsLike"); m_settings->tempColorByValue = extractBool(msg, "tempClr"); int iv = extractInt(msg, "interval"); if (iv > 0) m_settings->showDateIntervalSec = iv; m_pendingSave = millis(); }
+    else if (cmd == "setloc") { m_settings->weatherLat = extractFloat(msg, "lat"); m_settings->weatherLon = extractFloat(msg, "lon"); m_pendingSave = millis(); }
     else if (cmd == "buzzer") { int lv = extractInt(msg, "level"); if (lv >= 0 && lv <= 2) { m_settings->buzzerLevel = lv; m_pendingSave = millis(); } }
     else if (cmd == "buzztest") { m_buzzerTestRequested = true; }
     else if (cmd == "clockwork") { m_settings->clockworkBuzzer = extractBool(msg, "enabled"); m_pendingSave = millis(); }
@@ -844,6 +884,7 @@ String WebUI::buildFastJSON() {
     j += ",\"m\":"; j += m_timeMgr->getMinutes();
     j += ",\"s\":"; j += m_timeMgr->getSeconds();
     j += ",\"dv\":"; j += m_displayValue;
+    j += ",\"dt\":"; j += m_displayTemp ? "true" : "false";
     j += ",\"db\":"; j += m_displayBlank ? "true" : "false";
     j += ",\"mode\":"; j += (int)m_mode;
     CRGB c = m_display->activeColor();
@@ -910,6 +951,13 @@ String WebUI::buildStateJSON() {
     j += ",\"pomTotal\":"; j += m_settings->pomodoroIntervals;
     j += ",\"dateEn\":"; j += m_settings->showDateEnabled ? "true" : "false";
     j += ",\"dateInt\":"; j += m_settings->showDateIntervalSec;
+    j += ",\"tempEn\":"; j += m_settings->showTempEnabled ? "true" : "false";
+    j += ",\"tempFL\":"; j += m_settings->tempFeelsLike ? "true" : "false";
+    j += ",\"tempClr\":"; j += m_settings->tempColorByValue ? "true" : "false";
+    if (!isnan(m_currentTemp)) { j += ",\"curTemp\":"; j += String(m_currentTemp, 1); j += ",\"curFL\":"; j += String(m_currentFeelsLike, 1); }
+    else { j += ",\"curTemp\":null,\"curFL\":null"; }
+    if (m_weatherCity.length() > 0) { j += ",\"wLoc\":\""; j += m_weatherCity; j += "\""; }
+    if (m_settings->weatherLat != 0) { j += ",\"wLat\":"; j += String(m_settings->weatherLat, 2); j += ",\"wLon\":"; j += String(m_settings->weatherLon, 2); }
     j += ",\"colonEn\":"; j += m_settings->colonLedsEnabled ? "true" : "false";
     j += ",\"buzzLv\":"; j += m_settings->buzzerLevel;
     j += ",\"cwBuzz\":"; j += m_settings->clockworkBuzzer ? "true" : "false";
@@ -963,8 +1011,20 @@ void WebUI::begin(LedDisplay* display, TimeManager* timeMgr, ConfigStore* config
         else if (type == WS_EVT_DATA) { handleWebSocketMessage(client, data, len); }
     });
     m_server->addHandler(m_ws);
-    m_server->on("/", HTTP_GET, [](AsyncWebServerRequest* r) { r->send(200, "text/html", WEB_HTML); });
+    m_server->on("/", HTTP_GET, [](AsyncWebServerRequest* r) {
+        size_t htmlLen = strlen_P(WEB_HTML);
+        AsyncWebServerResponse* resp = r->beginChunkedResponse("text/html",
+            [htmlLen](uint8_t* buffer, size_t maxLen, size_t index) -> size_t {
+                if (index >= htmlLen) return 0;
+                size_t len = std::min(maxLen, htmlLen - index);
+                memcpy_P((char*)buffer, WEB_HTML + index, len);
+                return len;
+            });
+        r->send(resp);
+    });
     m_server->on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest* r) { r->send(404); });
+    extern const char* getLogBuffer();
+    m_server->on("/logs", HTTP_GET, [](AsyncWebServerRequest* r) { r->send(200, "text/plain", getLogBuffer()); });
     m_server->on("/update", HTTP_GET, [](AsyncWebServerRequest* r) {
         r->send(200, "text/html", "<html><body style='background:#0f0f23;color:#e0e0e0;font-family:sans-serif;text-align:center;padding:40px'><h2>Firmware Update</h2><p style='color:#e74c3c'>Developer Only - Use main UI for guided update</p><form id='f' method='POST' enctype='multipart/form-data'><input type='password' id='p' placeholder='Password' style='margin:10px;padding:8px'><br><input type='file' name='firmware' style='margin:10px'><br><input type='button' value='Upload' onclick=\"f.action='/update?pass='+encodeURIComponent(p.value);f.submit()\" style='padding:12px 24px;font-size:16px;cursor:pointer'></form></body></html>");
     });

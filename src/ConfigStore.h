@@ -57,6 +57,12 @@ struct WatchSettings {
     uint8_t colorMode = 0;
     // Birthday count (actual data in NVS)
     uint8_t birthdayCount = 0;
+    // Weather
+    bool showTempEnabled = false;
+    bool tempFeelsLike = false;        // false=actual, true=feels_like
+    bool tempColorByValue = false;     // false=clock color, true=color by temperature
+    float weatherLat = 0;              // 0=auto-detect from IP
+    float weatherLon = 0;
 };
 
 class ConfigStore {
@@ -80,6 +86,7 @@ public:
     void loadBirthday(int index, Birthday& bday);
     void saveTabataPreset(int index, const TabataPreset& preset);
     void loadTabataPreset(int index, TabataPreset& preset);
+    void saveWeather(bool tempEnabled, bool feelsLike);
 };
 
 #endif // CONFIG_STORE_H

@@ -1,4 +1,7 @@
 #include <Arduino.h>
+#include <ArduinoOTA.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
 #include "Config.h"
 #include "LedDisplay.h"
 #include "TimeManager.h"
@@ -13,6 +16,29 @@ WebUI        webUI;
 ConfigStore  configStore;
 WatchSettings settings;
 
+// Network-accessible log buffer
+#define LOG_BUF_SIZE 2048
+static char logBuf[LOG_BUF_SIZE];
+static int logPos = 0;
+const char* getLogBuffer() { return logBuf; }
+
+// Custom Print class that tees to Serial + ring buffer
+class LogTee : public Print {
+public:
+    size_t write(uint8_t c) override {
+        Serial.write(c);
+        logBuf[logPos] = (char)c;
+        logPos = (logPos + 1) % (LOG_BUF_SIZE - 1);
+        logBuf[logPos] = 0;
+        return 1;
+    }
+    size_t write(const uint8_t* buf, size_t size) override {
+        for (size_t i = 0; i < size; i++) write(buf[i]);
+        return size;
+    }
+};
+LogTee logger;
+
 // Timing
 unsigned long lastDisplayUpdate = 0;
 unsigned long lastColonToggle = 0;
@@ -21,6 +47,12 @@ int lastClockDisplay = -1;
 unsigned long lastDateShow = 0;
 unsigned long lastBirthdayCheck = 0;
 int lastBirthdayHour = -1;
+
+// Weather (fetched on Core 0 background task)
+volatile float currentTemp = NAN;
+volatile float currentFeelsLike = NAN;
+char weatherCity[32] = {0};
+bool showTempNext = false;
 
 #define CLOCK_REFRESH_MS     200
 #define STOPWATCH_REFRESH_MS  50
@@ -54,20 +86,127 @@ void updateColonLED(unsigned long now, bool wifiLost) {
 
 uint8_t buzzVol() { return settings.buzzerLevel == 1 ? 40 : 128; } // low=40, high=128
 
-void playBuzzer() {
+void buzzNote(int freq, int ms) {
     uint8_t v = buzzVol();
-    ledcWriteTone(BUZZER_LEDC_CH, 1000); ledcWrite(BUZZER_LEDC_CH, v); delay(200);
-    ledcWrite(BUZZER_LEDC_CH, 0); delay(100);
-    ledcWriteTone(BUZZER_LEDC_CH, 1500); ledcWrite(BUZZER_LEDC_CH, v); delay(200);
-    ledcWrite(BUZZER_LEDC_CH, 0); delay(100);
-    ledcWriteTone(BUZZER_LEDC_CH, 2000); ledcWrite(BUZZER_LEDC_CH, v); delay(400);
+    ledcWriteTone(BUZZER_LEDC_CH, freq);
+    ledcWrite(BUZZER_LEDC_CH, v);
+    delay(ms);
     ledcWrite(BUZZER_LEDC_CH, 0);
 }
 
+// "Happy Birthday to You" — first phrase
+void playHappyBirthday() {
+    // C C D C F E | C C D C G F | ...
+    // Using octave 5 frequencies
+    const int C5=523, D5=587, E5=659, F5=698, G5=784, A5=880, Bb5=932, C6=1047;
+    int melody[]  = { C5,C5, D5, C5, F5, E5,   C5,C5, D5, C5, G5, F5,   C5,C5, C6, A5, F5, E5, D5,   Bb5,Bb5, A5, F5, G5, F5 };
+    int dur[]     = { 150,150, 300, 300, 300, 600,  150,150, 300, 300, 300, 600,  150,150, 300, 300, 300, 300, 600,  150,150, 300, 300, 300, 600 };
+    int notes = sizeof(melody) / sizeof(melody[0]);
+    for (int i = 0; i < notes; i++) {
+        buzzNote(melody[i], dur[i]);
+        delay(30);  // gap between notes
+    }
+}
+
+// Cuckoo clock: high-low tone pair
+void playCuckoo() {
+    buzzNote(784, 180);  // G5
+    delay(80);
+    buzzNote(659, 280);  // E5
+}
+
+void playBuzzer() { playHappyBirthday(); }
+
 void playPhaseBeep(bool isWork) {
-    uint8_t v = buzzVol();
-    ledcWriteTone(BUZZER_LEDC_CH, isWork ? 2000 : 800); ledcWrite(BUZZER_LEDC_CH, v); delay(150);
-    ledcWrite(BUZZER_LEDC_CH, 0);
+    buzzNote(isWork ? 2000 : 800, 150);
+}
+
+// Check if today is any stored birthday
+bool isBirthdayToday() {
+    if (!timeManager.isTimeSynced() || settings.birthdayCount == 0) return false;
+    int d = timeManager.getDay(), m = timeManager.getMonth();
+    for (int i = 0; i < settings.birthdayCount && i < MAX_BIRTHDAYS; i++) {
+        Birthday b; configStore.loadBirthday(i, b);
+        if (b.day == d && b.month == m && b.name[0] != 0) return true;
+    }
+    return false;
+}
+
+// Weather background task — runs on Core 0, never blocks animations
+void weatherTask(void* param) {
+    float lat = NAN, lon = NAN;
+    logger.printf("[weather] task started on core %d, free heap: %u\n", xPortGetCoreID(), ESP.getFreeHeap());
+
+    for (;;) {
+        if (!settings.showTempEnabled || !wifiManager.isConnected()) {
+            vTaskDelay(pdMS_TO_TICKS(5000));
+            continue;
+        }
+        logger.printf("[weather] enabled, free heap: %u, stack HWM: %u\n", ESP.getFreeHeap(), uxTaskGetStackHighWaterMark(NULL));
+        // Use stored coordinates if set by browser geolocation (re-check each cycle)
+        if (settings.weatherLat != 0 && settings.weatherLon != 0) {
+            lat = settings.weatherLat;
+            lon = settings.weatherLon;
+        }
+        // Fall back to IP geolocation
+        if (isnan(lat)) {
+            logger.println("[weather] fetching location...");
+            HTTPClient http;
+            http.setTimeout(5000);
+            http.begin("http://ip-api.com/json/?fields=lat,lon,city");
+            int locCode = http.GET();
+            logger.printf("[weather] ip-api response: %d\n", locCode);
+            if (locCode == 200) {
+                String body = http.getString();
+                JsonDocument doc;
+                if (!deserializeJson(doc, body)) {
+                    lat = doc["lat"].as<float>();
+                    lon = doc["lon"].as<float>();
+                    const char* city = doc["city"].as<const char*>();
+                    if (city) { strncpy(weatherCity, city, sizeof(weatherCity)-1); weatherCity[sizeof(weatherCity)-1] = 0; }
+                    logger.printf("[weather] location: %.2f, %.2f (%s)\n", lat, lon, weatherCity);
+                } else {
+                    logger.println("[weather] JSON parse failed for location");
+                }
+            }
+            http.end();
+            if (isnan(lat)) {
+                logger.println("[weather] no location, retry in 60s");
+                vTaskDelay(pdMS_TO_TICKS(60000));
+                continue;
+            }
+        }
+        // Fetch temperature
+        logger.println("[weather] fetching temp...");
+        HTTPClient http;
+        String url = "http://api.open-meteo.com/v1/forecast?latitude=";
+        url += String(lat, 2); url += "&longitude="; url += String(lon, 2);
+        url += "&current=temperature_2m,apparent_temperature";
+        http.setTimeout(5000);
+        http.begin(url);
+        int code = http.GET();
+        logger.printf("[weather] open-meteo response: %d, heap: %u\n", code, ESP.getFreeHeap());
+        if (code == 200) {
+            String body = http.getString();
+            JsonDocument doc;
+            DeserializationError err = deserializeJson(doc, body);
+            if (!err) {
+                float actual = doc["current"]["temperature_2m"].as<float>();
+                float feels = doc["current"]["apparent_temperature"].as<float>();
+                currentTemp = actual;
+                currentFeelsLike = feels;
+                float t = settings.tempFeelsLike ? feels : actual;
+                logger.printf("[weather] actual=%.1f feels=%.1f, heap: %u\n", actual, feels, ESP.getFreeHeap());
+            } else {
+                logger.printf("[weather] JSON parse failed: %s\n", err.c_str());
+            }
+        } else {
+            logger.printf("[weather] fetch failed: %d\n", code);
+        }
+        http.end();
+        logger.printf("[weather] done, sleeping %ds. Heap: %u\n", WEATHER_FETCH_INTERVAL/1000, ESP.getFreeHeap());
+        vTaskDelay(pdMS_TO_TICKS(WEATHER_FETCH_INTERVAL));
+    }
 }
 
 void setup() {
@@ -91,6 +230,9 @@ void setup() {
     ledDisplay.showCONN();
     wifiManager.begin();
 
+    // Weather fetch on Core 0 (non-blocking)
+    xTaskCreatePinnedToCore(weatherTask, "weather", 8192, NULL, 1, NULL, 0);
+
     Serial.printf("Setup complete (%lu ms)\n", millis());
 }
 
@@ -101,6 +243,7 @@ void loop() {
     static bool dateShowing = false;
     static unsigned long dateShowStart = 0;
     static int dateDispVal = 0;
+    static bool dateShowingTemp = false;
     static bool servicesStarted = false;
     if (wifiManager.isConnected() && !servicesStarted) {
         servicesStarted = true;
@@ -111,6 +254,10 @@ void loop() {
         timeManager.setDSTMode(settings.dstMode);
         timeManager.setDSTRules(settings.dstStart, settings.dstEnd);
         webUI.begin(&ledDisplay, &timeManager, &configStore, &settings, &wifiManager);
+
+        // ArduinoOTA for PlatformIO uploads
+        ArduinoOTA.setHostname("neotick");
+        ArduinoOTA.begin();
 
         // Show IP on LEDs after services are up
         ledDisplay.showIP(wifiManager.getIP().c_str());
@@ -128,8 +275,22 @@ void loop() {
         return;
     }
 
+    ArduinoOTA.handle();
     timeManager.update();
+    webUI.setCurrentTemp(currentTemp, currentFeelsLike);
+    webUI.setWeatherCity(weatherCity);
     webUI.update();
+
+    // Debug: print loop stats every 10s
+    static unsigned long lastDebug = 0;
+    static unsigned long loopCount = 0;
+    loopCount++;
+    if (now - lastDebug >= 10000) {
+        logger.printf("[loop] %lu iter/10s, heap:%u, temp:%.1f, tempEn:%d\n",
+            loopCount, ESP.getFreeHeap(), (float)currentTemp, settings.showTempEnabled);
+        loopCount = 0;
+        lastDebug = now;
+    }
 
     // Colon LEDs: normal blink when connected, fast when WiFi lost
     updateColonLED(now, wifiManager.isWifiLost());
@@ -362,7 +523,7 @@ void loop() {
         ledDisplay.setBrightness(targetBright);
     }
 
-    // Clockwork buzzer: chime on the hour (number of times = hour)
+    // Clockwork buzzer: cuckoo on the hour, or Happy Birthday on birthdays
     if (settings.clockworkBuzzer && settings.buzzerLevel > 0 && mode == MODE_CLOCK && timeManager.isTimeSynced()) {
         static int lastChimeHour = -1;
         int h = timeManager.getHours();
@@ -370,12 +531,15 @@ void loop() {
         if (m == 0 && h != lastChimeHour) {
             if (!isNightShiftActive()) {
                 lastChimeHour = h;
-                int chimes = h % 12;
-                if (chimes == 0) chimes = 12;
-                uint8_t v = buzzVol();
-                for (int i = 0; i < chimes; i++) {
-                    ledcWriteTone(BUZZER_LEDC_CH, 1200); ledcWrite(BUZZER_LEDC_CH, v); delay(120);
-                    ledcWrite(BUZZER_LEDC_CH, 0); delay(180);
+                if (isBirthdayToday()) {
+                    playHappyBirthday();
+                } else {
+                    int chimes = h % 12;
+                    if (chimes == 0) chimes = 12;
+                    for (int i = 0; i < chimes; i++) {
+                        playCuckoo();
+                        delay(300);
+                    }
                 }
             } else {
                 lastChimeHour = h;  // skip but mark so we don't retry
@@ -384,25 +548,75 @@ void loop() {
         if (m != 0) lastChimeHour = -1;  // reset for next hour
     }
 
-    // Date display (only in clock mode) — non-blocking
-    if (mode == MODE_CLOCK && settings.showDateEnabled && timeManager.isTimeSynced()) {
-        unsigned long dateIv = (unsigned long)settings.showDateIntervalSec * 1000UL;
-        if (!dateShowing && now - lastDateShow >= dateIv) {
+    // Info display: date and/or temperature (only in clock mode) — non-blocking
+    // Phase 0 = date (2s), phase 1 = temp (2s). If only one enabled, single phase.
+    static int infoPhase = 0;  // 0=date, 1=temp
+    bool infoEnabled = (settings.showDateEnabled || settings.showTempEnabled) && timeManager.isTimeSynced();
+    if (mode == MODE_CLOCK && infoEnabled) {
+        unsigned long infoIv = (unsigned long)settings.showDateIntervalSec * 1000UL;
+        if (!dateShowing && now - lastDateShow >= infoIv) {
             dateShowing = true;
             dateShowStart = now;
-            int dd = timeManager.getDay();
-            int mm = timeManager.getMonth();
-            dateDispVal = dd * 100 + mm;
-            if (!isNightShiftActive() && settings.colonLedsEnabled)
-                digitalWrite(COLON_LED_PIN, HIGH);
+            // Start with date if enabled, otherwise temp
+            if (settings.showDateEnabled) {
+                infoPhase = 0;
+                int dd = timeManager.getDay(), mm = timeManager.getMonth();
+                dateDispVal = dd * 100 + mm;
+                dateShowingTemp = false;
+                if (!isNightShiftActive() && settings.colonLedsEnabled)
+                    digitalWrite(COLON_LED_PIN, HIGH);
+            } else {
+                infoPhase = 1;
+                float t = settings.tempFeelsLike ? currentFeelsLike : currentTemp;
+                if (isnan(t)) { dateShowing = false; lastDateShow = now - infoIv + 5000UL; }
+                else { dateDispVal = (int)roundf(t); dateShowingTemp = true; digitalWrite(COLON_LED_PIN, LOW); }
+            }
         }
-        if (dateShowing) {
-            showAndMirror(dateDispVal);
-            if (now - dateShowStart >= 2000) {
-                dateShowing = false;
-                lastDateShow = now;
+        // Transition from date phase to temp phase after 2s
+        if (dateShowing && infoPhase == 0 && now - dateShowStart >= 2000) {
+            if (settings.showTempEnabled && !isnan((float)currentTemp)) {
+                infoPhase = 1;
+                dateShowStart = now;
+                float t = settings.tempFeelsLike ? currentFeelsLike : currentTemp;
+                dateDispVal = (int)roundf(t);
+                dateShowingTemp = true;
                 digitalWrite(COLON_LED_PIN, LOW);
+            } else {
+                // No temp, end cycle
+                dateShowing = false; lastDateShow = now;
+                webUI.setDisplayTemp(false); digitalWrite(COLON_LED_PIN, LOW);
                 lastClockDisplay = -1;
+            }
+        }
+        // End temp phase (or single phase) after 2s
+        if (dateShowing && infoPhase == 1 && now - dateShowStart >= 2000) {
+            dateShowing = false; lastDateShow = now;
+            ledDisplay.clearOverrideColor();
+            webUI.setDisplayTemp(false); digitalWrite(COLON_LED_PIN, LOW);
+            lastClockDisplay = -1;
+        }
+        // Render current phase
+        if (dateShowing) {
+            if (dateShowingTemp) {
+                if (settings.tempColorByValue) {
+                    // Color by temperature: blue<5, cyan 5-15, green 15-22, orange 22-30, red>30
+                    CRGB tc;
+                    int t = dateDispVal;
+                    if (t < 5)       tc = CRGB(0, 0, 255);
+                    else if (t < 15) tc = CRGB(0, 200, 255);
+                    else if (t < 22) tc = CRGB(0, 255, 0);
+                    else if (t < 30) tc = CRGB(255, 140, 0);
+                    else             tc = CRGB(255, 0, 0);
+                    ledDisplay.setOverrideColor(tc);
+                }
+                ledDisplay.renderTemp(dateDispVal);
+                ledDisplay.forceShow();
+                webUI.setDisplayValue(dateDispVal);
+                webUI.setDisplayBlank(false);
+                webUI.setDisplayTemp(true);
+            } else {
+                webUI.setDisplayTemp(false);
+                showAndMirror(dateDispVal);
             }
         }
     }

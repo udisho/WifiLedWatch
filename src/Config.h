@@ -90,6 +90,9 @@ struct DSTRule {
 #define PAUSE_PULSE_MIN_BRIGHT  15
 #define PAUSE_PULSE_SPEED_MS    30    // ms per brightness step
 
+// === Weather ===
+#define WEATHER_FETCH_INTERVAL  600000   // 10 minutes
+
 // === Thermal Protection ===
 #define THERMAL_WARN_TEMP       60    // show warning in GUI
 #define THERMAL_THROTTLE_TEMP   65    // auto-reduce brightness
