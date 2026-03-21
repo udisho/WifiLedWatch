@@ -51,6 +51,7 @@ int lastBirthdayHour = -1;
 // Weather (fetched on Core 0 background task)
 volatile float currentTemp = NAN;
 volatile float currentFeelsLike = NAN;
+volatile bool weatherFetchNow = false;  // trigger immediate fetch
 char weatherCity[32] = {0};
 bool showTempNext = false;
 
@@ -205,7 +206,12 @@ void weatherTask(void* param) {
         }
         http.end();
         logger.printf("[weather] done, sleeping %ds. Heap: %u\n", WEATHER_FETCH_INTERVAL/1000, ESP.getFreeHeap());
-        vTaskDelay(pdMS_TO_TICKS(WEATHER_FETCH_INTERVAL));
+        // Sleep in small chunks so we can wake on weatherFetchNow
+        for (int i = 0; i < WEATHER_FETCH_INTERVAL / 2000; i++) {
+            if (weatherFetchNow) break;
+            vTaskDelay(pdMS_TO_TICKS(2000));
+        }
+        weatherFetchNow = false;
     }
 }
 
