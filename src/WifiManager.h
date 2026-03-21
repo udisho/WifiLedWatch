@@ -78,7 +78,9 @@ private:
     PeerInfo m_peers[MAX_PEERS];
     int m_peerCount = 0;
     unsigned long m_lastPeerScan = 0;
+    bool m_peerScanRunning = false;
     void scanPeers();
+    static void scanPeersTask(void* param);
 };
 
 #endif // WIFI_MANAGER_H

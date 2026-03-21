@@ -213,9 +213,10 @@ void WifiManager::update() {
                 Serial.println("WiFi lost, will reconnect...");
                 m_state = WIFI_STATE_RECONNECTING;
                 m_lastReconnectAttempt = 0;  // trigger immediate attempt
-            } else if (now - m_lastPeerScan > PEER_SCAN_INTERVAL) {
-                scanPeers();
+            } else if (!m_peerScanRunning && now - m_lastPeerScan > PEER_SCAN_INTERVAL) {
+                m_peerScanRunning = true;
                 m_lastPeerScan = now;
+                xTaskCreatePinnedToCore(scanPeersTask, "peerScan", 4096, this, 1, NULL, 0);
             }
             break;
 
@@ -395,6 +396,13 @@ bool WifiManager::justConnected() {
 
 void WifiManager::setWifiPowerSave(bool enable) {
     esp_wifi_set_ps(enable ? WIFI_PS_MIN_MODEM : WIFI_PS_NONE);
+}
+
+void WifiManager::scanPeersTask(void* param) {
+    WifiManager* self = (WifiManager*)param;
+    self->scanPeers();
+    self->m_peerScanRunning = false;
+    vTaskDelete(NULL);
 }
 
 void WifiManager::scanPeers() {
