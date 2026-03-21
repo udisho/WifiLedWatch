@@ -139,7 +139,7 @@ private:
 
     // Broadcast timing
     unsigned long m_lastBroadcast = 0;
-    unsigned long m_lastFullBroadcast = 0;
+    unsigned long m_lastFullBroadcast = 15000;  // stagger: offset from peer scan
 
     void setupRoutes();
     void handleWebSocketMessage(AsyncWebSocketClient* client, uint8_t* data, size_t len);

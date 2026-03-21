@@ -85,42 +85,64 @@ void updateColonLED(unsigned long now, bool wifiLost) {
     }
 }
 
-uint8_t buzzVol() { return settings.buzzerLevel == 1 ? 40 : 128; } // low=40, high=128
+// === Non-blocking tone queue ===
+struct ToneNote { uint16_t freq; uint16_t durMs; };
+#define TONE_QUEUE_MAX 60
+static ToneNote toneQueue[TONE_QUEUE_MAX];
+static int toneLen = 0, tonePos = 0;
+static unsigned long toneStart = 0;
+static bool tonePlaying = false;
 
-void buzzNote(int freq, int ms) {
-    uint8_t v = buzzVol();
-    ledcWriteTone(BUZZER_LEDC_CH, freq);
-    ledcWrite(BUZZER_LEDC_CH, v);
-    delay(ms);
-    ledcWrite(BUZZER_LEDC_CH, 0);
-}
+void toneQueueClear() { toneLen = 0; tonePos = 0; tonePlaying = false; ledcWrite(BUZZER_LEDC_CH, 0); }
+void toneQueueAdd(int freq, int ms) { if (toneLen < TONE_QUEUE_MAX) { toneQueue[toneLen++] = {(uint16_t)freq, (uint16_t)ms}; } }
+bool toneQueueBusy() { return tonePos < toneLen; }
 
-// "Happy Birthday to You" — first phrase
-void playHappyBirthday() {
-    // C C D C F E | C C D C G F | ...
-    // Using octave 5 frequencies
-    const int C5=523, D5=587, E5=659, F5=698, G5=784, A5=880, Bb5=932, C6=1047;
-    int melody[]  = { C5,C5, D5, C5, F5, E5,   C5,C5, D5, C5, G5, F5,   C5,C5, C6, A5, F5, E5, D5,   Bb5,Bb5, A5, F5, G5, F5 };
-    int dur[]     = { 150,150, 300, 300, 300, 600,  150,150, 300, 300, 300, 600,  150,150, 300, 300, 300, 300, 600,  150,150, 300, 300, 300, 600 };
-    int notes = sizeof(melody) / sizeof(melody[0]);
-    for (int i = 0; i < notes; i++) {
-        buzzNote(melody[i], dur[i]);
-        delay(30);  // gap between notes
+void toneQueueProcess() {
+    if (tonePos >= toneLen) { if (tonePlaying) { ledcWrite(BUZZER_LEDC_CH, 0); tonePlaying = false; } return; }
+    unsigned long now = millis();
+    if (!tonePlaying || now - toneStart >= toneQueue[tonePos].durMs) {
+        if (tonePlaying) { tonePos++; ledcWrite(BUZZER_LEDC_CH, 0); }
+        if (tonePos >= toneLen) return;
+        // Small gap between notes
+        if (tonePlaying) { toneStart = now; tonePlaying = false; return; }
+        uint8_t v = settings.buzzerLevel == 1 ? 40 : 128;
+        if (toneQueue[tonePos].freq > 0) {
+            ledcWriteTone(BUZZER_LEDC_CH, toneQueue[tonePos].freq);
+            ledcWrite(BUZZER_LEDC_CH, v);
+        }
+        toneStart = now;
+        tonePlaying = true;
     }
 }
 
-// Cuckoo clock: high-low tone pair
-void playCuckoo() {
-    buzzNote(784, 180);  // G5
-    delay(80);
-    buzzNote(659, 280);  // E5
+// Queue melodies
+void queueHappyBirthday() {
+    toneQueueClear();
+    const int C5=523, D5=587, E5=659, F5=698, G5=784, A5=880, Bb5=932, C6=1047;
+    int melody[]  = { C5,C5, D5, C5, F5, E5,   C5,C5, D5, C5, G5, F5,   C5,C5, C6, A5, F5, E5, D5,   Bb5,Bb5, A5, F5, G5, F5 };
+    int dur[]     = { 150,150, 300, 300, 300, 600,  150,150, 300, 300, 300, 600,  150,150, 300, 300, 300, 300, 600,  150,150, 300, 300, 300, 600 };
+    for (int i = 0; i < 25; i++) toneQueueAdd(melody[i], dur[i]);
 }
 
-void playBuzzer() { playHappyBirthday(); }
-
-void playPhaseBeep(bool isWork) {
-    buzzNote(isWork ? 2000 : 800, 150);
+void queueCuckoo(int times) {
+    toneQueueClear();
+    for (int i = 0; i < times; i++) {
+        toneQueueAdd(784, 180);   // G5
+        toneQueueAdd(0, 80);      // gap (silence)
+        toneQueueAdd(659, 280);   // E5
+        if (i < times - 1) toneQueueAdd(0, 300);  // gap between pairs
+    }
 }
+
+void queueBeep(int freq, int ms) {
+    toneQueueClear();
+    toneQueueAdd(freq, ms);
+}
+
+void queueCountdownBeep() { toneQueueAdd(1500, 80); }  // append without clearing
+void queueDoneBeep() { toneQueueClear(); toneQueueAdd(2000, 600); }
+
+void queuePhaseBeep(bool isWork) { toneQueueClear(); toneQueueAdd(isWork ? 2000 : 800, 150); }
 
 // Check if today is any stored birthday
 bool isBirthdayToday() {
@@ -301,10 +323,12 @@ void loop() {
     // Colon LEDs: normal blink when connected, fast when WiFi lost
     updateColonLED(now, wifiManager.isWifiLost());
 
-    // Animation from GUI
+    // Process non-blocking tone queue
+    toneQueueProcess();
+
     // Buzzer test from GUI
     if (webUI.shouldTestBuzzer()) {
-        playBuzzer();
+        queueHappyBirthday();
     }
 
     if (webUI.shouldRunAnimation()) {
@@ -326,7 +350,7 @@ void loop() {
     }
     if (isDone && !buzzerPlayed && settings.buzzerLevel) {
         buzzerPlayed = true;
-        playBuzzer();
+        queueDoneBeep();
     }
     if (isDone && now - doneStartTime >= 3000) {
         if (mode == MODE_TIMER) webUI.timerReset();
@@ -424,6 +448,17 @@ void loop() {
 
         case MODE_TIMER: {
             ledDisplay.clearOverrideColor();
+            // Countdown beeps: last 3 seconds
+            if (webUI.isTimerRunning() && settings.buzzerLevel) {
+                static int lastBeepSec = -1;
+                long rem = webUI.getTimerRemaining();
+                int secLeft = (int)((rem + 999) / 1000);
+                if (secLeft >= 1 && secLeft <= 3 && secLeft != lastBeepSec) {
+                    lastBeepSec = secLeft;
+                    queueCountdownBeep();
+                }
+                if (secLeft > 3) lastBeepSec = -1;
+            }
             if (now - lastDisplayUpdate >= TIMER_REFRESH_MS) {
                 lastDisplayUpdate = now;
                 long remaining = webUI.getTimerRemaining();
@@ -449,7 +484,18 @@ void loop() {
         case MODE_TABATA: {
             // Buzz on work/rest phase change
             if (settings.buzzerLevel && webUI.tabataPhaseChanged()) {
-                playPhaseBeep(webUI.isTabataWorkPhase());
+                queuePhaseBeep(webUI.isTabataWorkPhase());
+            }
+            // Countdown beeps: last 3 seconds of each phase
+            if (webUI.isTabataRunning() && settings.buzzerLevel) {
+                static int lastTabBeepSec = -1;
+                long rem = webUI.getTabataPhaseRemaining();
+                int secLeft = (int)((rem + 999) / 1000);
+                if (secLeft >= 1 && secLeft <= 3 && secLeft != lastTabBeepSec) {
+                    lastTabBeepSec = secLeft;
+                    queueCountdownBeep();
+                }
+                if (secLeft > 3) lastTabBeepSec = -1;
             }
             if (now - lastDisplayUpdate >= TABATA_REFRESH_MS) {
                 lastDisplayUpdate = now;
@@ -538,14 +584,11 @@ void loop() {
             if (!isNightShiftActive()) {
                 lastChimeHour = h;
                 if (isBirthdayToday()) {
-                    playHappyBirthday();
+                    queueHappyBirthday();
                 } else {
                     int chimes = h % 12;
                     if (chimes == 0) chimes = 12;
-                    for (int i = 0; i < chimes; i++) {
-                        playCuckoo();
-                        delay(300);
-                    }
+                    queueCuckoo(chimes);
                 }
             } else {
                 lastChimeHour = h;  // skip but mark so we don't retry
@@ -554,50 +597,59 @@ void loop() {
         if (m != 0) lastChimeHour = -1;  // reset for next hour
     }
 
-    // Info display: date and/or temperature (only in clock mode) — non-blocking
-    // Phase 0 = date (2s), phase 1 = temp (2s). If only one enabled, single phase.
-    static int infoPhase = 0;  // 0=date, 1=temp
+    // Info display: temp then date (only in clock mode) — non-blocking
+    // Phase 0 = temp (2s), phase 1 = date (2s). If only one enabled, single phase.
+    static int infoPhase = 0;  // 0=temp, 1=date
     bool infoEnabled = (settings.showDateEnabled || settings.showTempEnabled) && timeManager.isTimeSynced();
     if (mode == MODE_CLOCK && infoEnabled) {
         unsigned long infoIv = (unsigned long)settings.showDateIntervalSec * 1000UL;
         if (!dateShowing && now - lastDateShow >= infoIv) {
             dateShowing = true;
             dateShowStart = now;
-            // Start with date if enabled, otherwise temp
-            if (settings.showDateEnabled) {
+            // Start with temp if enabled, otherwise date
+            if (settings.showTempEnabled) {
                 infoPhase = 0;
-                int dd = timeManager.getDay(), mm = timeManager.getMonth();
-                dateDispVal = dd * 100 + mm;
-                dateShowingTemp = false;
-                if (!isNightShiftActive() && settings.colonLedsEnabled)
-                    digitalWrite(COLON_LED_PIN, HIGH);
+                float t = settings.tempFeelsLike ? currentFeelsLike : currentTemp;
+                if (isnan(t)) {
+                    // Temp not ready, skip to date or retry
+                    if (settings.showDateEnabled) {
+                        infoPhase = 1;
+                        int dd = timeManager.getDay(), mm = timeManager.getMonth();
+                        dateDispVal = dd * 100 + mm; dateShowingTemp = false;
+                        if (!isNightShiftActive() && settings.colonLedsEnabled) digitalWrite(COLON_LED_PIN, HIGH);
+                    } else {
+                        dateShowing = false; lastDateShow = now - infoIv + 5000UL;
+                    }
+                } else {
+                    dateDispVal = (int)roundf(t); dateShowingTemp = true;
+                    digitalWrite(COLON_LED_PIN, LOW);
+                }
             } else {
                 infoPhase = 1;
-                float t = settings.tempFeelsLike ? currentFeelsLike : currentTemp;
-                if (isnan(t)) { dateShowing = false; lastDateShow = now - infoIv + 5000UL; }
-                else { dateDispVal = (int)roundf(t); dateShowingTemp = true; digitalWrite(COLON_LED_PIN, LOW); }
+                int dd = timeManager.getDay(), mm = timeManager.getMonth();
+                dateDispVal = dd * 100 + mm; dateShowingTemp = false;
+                if (!isNightShiftActive() && settings.colonLedsEnabled) digitalWrite(COLON_LED_PIN, HIGH);
             }
         }
-        // Transition from date phase to temp phase after 2s
+        // Transition from temp phase to date phase after 2s
         if (dateShowing && infoPhase == 0 && now - dateShowStart >= 2000) {
-            if (settings.showTempEnabled && !isnan((float)currentTemp)) {
+            if (settings.showDateEnabled) {
                 infoPhase = 1;
                 dateShowStart = now;
-                float t = settings.tempFeelsLike ? currentFeelsLike : currentTemp;
-                dateDispVal = (int)roundf(t);
-                dateShowingTemp = true;
-                digitalWrite(COLON_LED_PIN, LOW);
+                int dd = timeManager.getDay(), mm = timeManager.getMonth();
+                dateDispVal = dd * 100 + mm; dateShowingTemp = false;
+                ledDisplay.clearOverrideColor();
+                if (!isNightShiftActive() && settings.colonLedsEnabled) digitalWrite(COLON_LED_PIN, HIGH);
             } else {
-                // No temp, end cycle
                 dateShowing = false; lastDateShow = now;
+                ledDisplay.clearOverrideColor();
                 webUI.setDisplayTemp(false); digitalWrite(COLON_LED_PIN, LOW);
                 lastClockDisplay = -1;
             }
         }
-        // End temp phase (or single phase) after 2s
+        // End date phase (or single phase) after 2s
         if (dateShowing && infoPhase == 1 && now - dateShowStart >= 2000) {
             dateShowing = false; lastDateShow = now;
-            ledDisplay.clearOverrideColor();
             webUI.setDisplayTemp(false); digitalWrite(COLON_LED_PIN, LOW);
             lastClockDisplay = -1;
         }
