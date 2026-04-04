@@ -35,7 +35,11 @@ public:
     bool shouldTestBuzzer() { bool v = m_buzzerTestRequested; m_buzzerTestRequested = false; return v; }
 
     // Weather temperature (set by main loop, read by state JSON)
-    void setCurrentTemp(float actual, float feels) { m_currentTemp = actual; m_currentFeelsLike = feels; }
+    void setCurrentTemp(float actual, float feels) {
+        bool wasNan = isnan(m_currentTemp);
+        m_currentTemp = actual; m_currentFeelsLike = feels;
+        if (wasNan && !isnan(actual) && m_ws && m_ws->count() > 0) m_ws->textAll(buildStateJSON());
+    }
     void setWeatherCity(const char* city) { m_weatherCity = city ? city : ""; }
 
     // Stopwatch

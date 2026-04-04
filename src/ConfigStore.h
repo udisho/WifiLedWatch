@@ -48,7 +48,7 @@ struct WatchSettings {
     // Colon LEDs
     bool colonLedsEnabled = true;
     // Buzzer: 0=off, 1=low, 2=high
-    uint8_t buzzerLevel = 2;
+    uint8_t buzzerLevel = 0;
     bool clockworkBuzzer = false;  // chime on the hour
 
     // Pomodoro intervals

@@ -1,7 +1,12 @@
 #include "ConfigStore.h"
 #include <Preferences.h>
 
-void ConfigStore::begin() {}
+void ConfigStore::begin() {
+    // Create NVS namespace if it doesn't exist (e.g., after full flash erase)
+    Preferences prefs;
+    prefs.begin(PREFS_NS, false);
+    prefs.end();
+}
 
 void ConfigStore::load(WatchSettings& s) {
     Preferences prefs;
@@ -42,7 +47,7 @@ void ConfigStore::load(WatchSettings& s) {
     s.showDateEnabled     = prefs.getBool("dateEn", false);
     s.showDateIntervalSec = prefs.getUChar("dateInt", 30);
     s.colonLedsEnabled  = prefs.getBool("colonEn", true);
-    s.buzzerLevel       = prefs.getUChar("buzzLv", 2);
+    s.buzzerLevel       = prefs.getUChar("buzzLv", 0);
     s.clockworkBuzzer   = prefs.getBool("cwBuzz", false);
 
     s.pomodoroIntervals   = prefs.getUChar("pomInt", POMODORO_INTERVALS);
@@ -52,8 +57,8 @@ void ConfigStore::load(WatchSettings& s) {
     s.showTempEnabled     = prefs.getBool("tempEn", false);
     s.tempFeelsLike       = prefs.getBool("tempFL", false);
     s.tempColorByValue    = prefs.getBool("tempClr", false);
-    s.weatherLat          = prefs.getFloat("wLat", 0);
-    s.weatherLon          = prefs.getFloat("wLon", 0);
+    if (prefs.isKey("wLat")) s.weatherLat = prefs.getFloat("wLat", 0);
+    if (prefs.isKey("wLon")) s.weatherLon = prefs.getFloat("wLon", 0);
 
     prefs.end();
 }
@@ -233,10 +238,10 @@ void ConfigStore::loadTabataPreset(int index, TabataPreset& preset) {
     if (index < 0 || index >= MAX_TABATA_PRESETS) return;
     Preferences prefs; prefs.begin(PREFS_NS, true);
     char k[10];
-    snprintf(k, sizeof(k), "tp%dn", index); prefs.getString(k, preset.name, sizeof(preset.name));
-    snprintf(k, sizeof(k), "tp%dw", index); preset.workSec = prefs.getUShort(k, TABATA_DEFAULT_WORK_SEC);
-    snprintf(k, sizeof(k), "tp%dr", index); preset.restSec = prefs.getUShort(k, TABATA_DEFAULT_REST_SEC);
-    snprintf(k, sizeof(k), "tp%di", index); preset.intervals = prefs.getUChar(k, TABATA_DEFAULT_INTERVALS);
+    snprintf(k, sizeof(k), "tp%dn", index); if (prefs.isKey(k)) prefs.getString(k, preset.name, sizeof(preset.name));
+    snprintf(k, sizeof(k), "tp%dw", index); if (prefs.isKey(k)) preset.workSec = prefs.getUShort(k, TABATA_DEFAULT_WORK_SEC);
+    snprintf(k, sizeof(k), "tp%dr", index); if (prefs.isKey(k)) preset.restSec = prefs.getUShort(k, TABATA_DEFAULT_REST_SEC);
+    snprintf(k, sizeof(k), "tp%di", index); if (prefs.isKey(k)) preset.intervals = prefs.getUChar(k, TABATA_DEFAULT_INTERVALS);
     prefs.end();
 }
 

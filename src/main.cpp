@@ -357,6 +357,9 @@ void loop() {
         else if (mode == MODE_TABATA) webUI.tabataReset();
         else webUI.pomodoroReset();
         webUI.setMode(MODE_CLOCK);
+        webUI.setDisplayTemp(false);
+        webUI.setDisplayBlank(false);
+        dateShowing = false;
         mode = MODE_CLOCK;
         doneStartTime = 0;
     }
@@ -408,6 +411,7 @@ void loop() {
     switch (mode) {
         case MODE_CLOCK: {
             if (dateShowing) break;  // date display owns the LEDs
+            if (!timeManager.isTimeSynced()) break;  // don't display until NTP syncs
             if (now - lastDisplayUpdate >= CLOCK_REFRESH_MS) {
                 lastDisplayUpdate = now;
                 int display;
@@ -632,7 +636,7 @@ void loop() {
             }
         }
         // Transition from temp phase to date phase after 2s
-        if (dateShowing && infoPhase == 0 && now - dateShowStart >= 2000) {
+        if (dateShowing && infoPhase == 0 && now - dateShowStart >= 3000) {
             if (settings.showDateEnabled) {
                 infoPhase = 1;
                 dateShowStart = now;
@@ -648,7 +652,7 @@ void loop() {
             }
         }
         // End date phase (or single phase) after 2s
-        if (dateShowing && infoPhase == 1 && now - dateShowStart >= 2000) {
+        if (dateShowing && infoPhase == 1 && now - dateShowStart >= 3000) {
             dateShowing = false; lastDateShow = now;
             webUI.setDisplayTemp(false); digitalWrite(COLON_LED_PIN, LOW);
             lastClockDisplay = -1;
