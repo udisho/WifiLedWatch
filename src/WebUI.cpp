@@ -371,7 +371,7 @@ static const char WEB_HTML[] PROGMEM = R"=====(
 <meta name="apple-mobile-web-app-title" content="NeoTick">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" href="/icon.png">
+<link rel="apple-touch-icon" href="/touch-icon.png">
 <link rel="icon" type="image/svg+xml" href="/icon.svg">
 <title>NeoTick</title>
 <style>
@@ -1371,13 +1371,13 @@ void WebUI::begin(LedDisplay* display, TimeManager* timeMgr, ConfigStore* config
     m_server->on("/icon.svg", HTTP_GET, [](AsyncWebServerRequest* r) {
         r->send(200, "image/svg+xml", "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='#0f0f23'/><text x='50' y='62' text-anchor='middle' font-family='monospace' font-size='36' font-weight='bold' fill='#44d9e1'>12:34</text></svg>");
     });
-    m_server->on("/icon.png", HTTP_GET, [](AsyncWebServerRequest* r) {
+    m_server->on("/touch-icon.png", HTTP_GET, [](AsyncWebServerRequest* r) {
         AsyncWebServerResponse* resp = r->beginResponse_P(200, "image/png", ICON_PNG, ICON_PNG_LEN);
         resp->addHeader("Cache-Control", "no-cache");
         r->send(resp);
     });
     m_server->on("/manifest.json", HTTP_GET, [](AsyncWebServerRequest* r) {
-        r->send(200, "application/manifest+json", "{\"name\":\"NeoTick\",\"short_name\":\"NeoTick\",\"display\":\"standalone\",\"background_color\":\"#0f0f23\",\"theme_color\":\"#0f0f23\",\"start_url\":\"/\",\"icons\":[{\"src\":\"/icon.png\",\"sizes\":\"192x192\",\"type\":\"image/png\"}]}");
+        r->send(200, "application/manifest+json", "{\"name\":\"NeoTick\",\"short_name\":\"NeoTick\",\"display\":\"standalone\",\"background_color\":\"#0f0f23\",\"theme_color\":\"#0f0f23\",\"start_url\":\"/\",\"icons\":[{\"src\":\"/touch-icon.png\",\"sizes\":\"192x192\",\"type\":\"image/png\"}]}");
     });
     m_server->on("/logs", HTTP_GET, [](AsyncWebServerRequest* r) { r->send(200, "text/plain", getLogBuffer()); });
     m_server->on("/update", HTTP_GET, [](AsyncWebServerRequest* r) {
