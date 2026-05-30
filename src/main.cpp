@@ -46,7 +46,6 @@ bool colonState = false;
 int lastClockDisplay = -1;
 unsigned long lastDateShow = 0;
 unsigned long lastBirthdayCheck = 0;
-int lastBirthdayHour = -1;
 
 // Weather (fetched on Core 0 background task)
 volatile float currentTemp = NAN;
@@ -683,11 +682,11 @@ void loop() {
         }
     }
 
-    // Birthday check (once per hour, on the hour)
+    // Birthday check (configurable interval)
+    unsigned long bdIntervalMs = (unsigned long)settings.birthdayIntervalMins * 60000UL;
     if (mode == MODE_CLOCK && settings.birthdayCount > 0 && timeManager.isTimeSynced()) {
-        int curH = timeManager.getHours();
-        if (curH != lastBirthdayHour) {
-            lastBirthdayHour = curH;
+        if (now - lastBirthdayCheck >= bdIntervalMs) {
+            lastBirthdayCheck = now;
             int curDay = timeManager.getDay();
             int curMonth = timeManager.getMonth();
             for (int i = 0; i < settings.birthdayCount && i < MAX_BIRTHDAYS; i++) {

@@ -345,7 +345,8 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
 
   <div class="sec-hdr" onclick="togSec(this)"><h3>Birthdays</h3><span class="arr">&#9660;</span></div>
   <div class="sec-body">
-    <div style="font-size:11px;color:var(--text2);margin-bottom:10px;line-height:1.5">On a birthday, the watch scrolls "HAPPY BDAY [name]" every hour with a celebration animation.</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:10px;line-height:1.5">On a birthday, the watch scrolls "HAPPY BDAY [name]" with a celebration animation.</div>
+    <div class="slider-row" style="margin-bottom:10px"><label>Repeat every</label><select id="bdayIntv" onchange="send({cmd:'bday_interval',value:+this.value})" style="padding:6px 10px;border-radius:8px;border:1px solid #333;background:var(--btn);color:var(--text);font-size:13px"><option value="10">10 min</option><option value="20">20 min</option><option value="30">30 min</option><option value="60" selected>1 hour</option><option value="120">2 hours</option></select></div>
     <div id="bdayList" style="margin-bottom:8px"></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
       <input type="text" id="bdayName" maxlength="15" placeholder="Name" style="width:80px;padding:6px;border-radius:6px;border:1px solid #333;background:var(--btn);color:var(--text);font-size:12px">
@@ -637,6 +638,7 @@ function updateUI(){var _sy=window.pageYOffset;
   if(st.buzzLv!==undefined&&st.full){var r=document.querySelector('input[name=buzz][value="'+st.buzzLv+'"]');if(r)r.checked=true;}
   if(st.cwBuzz!==undefined&&st.full)document.getElementById('cwToggle').checked=st.cwBuzz;
   if(st.rssi!==undefined){var r=st.rssi,q=r>-50?'Excellent':r>-65?'Good':r>-75?'Weak':'Poor',cl=r>-50?'var(--success)':r>-65?'var(--accent)':r>-75?'#FFA500':'var(--danger)';document.getElementById('rssiLine').innerHTML='Signal: <strong style="color:'+cl+'">'+r+' dBm ('+q+')</strong>';}
+  if(st.bdIntv!==undefined&&st.full){var s=document.getElementById('bdayIntv');if(s)s.value=st.bdIntv;}
   if(st.bdays){var bl=document.getElementById('bdayList');bl.innerHTML='';st.bdays.forEach(function(b,i){bl.innerHTML+='<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:13px"><span>'+b.n+' - '+P(b.d)+'/'+P(b.m)+'</span><button class="btn btn-danger" style="padding:4px 10px;font-size:11px" onclick="delBday('+i+')">X</button></div>';});}
   if(st.tabPresets){var sel=document.getElementById('tabPresetSel');sel.innerHTML='';var pl=document.getElementById('tabPresetList');pl.innerHTML='';st.tabPresets.forEach(function(p,i){if(p.n){var o=document.createElement('option');o.value=i;o.textContent=p.n;sel.appendChild(o);pl.innerHTML+='<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-bottom:4px;background:rgba(255,255,255,.03);border-radius:8px;font-size:13px"><span style="color:var(--text)">'+p.n+' <span style="color:var(--text2);font-size:11px">'+p.w+'s / '+p.r+'s / '+p.i+'r</span></span><span style="display:flex;gap:4px"><button class="btn btn-secondary" style="padding:4px 10px;font-size:11px" onclick="loadTabPresetIdx('+i+')">Load</button><button class="btn btn-danger" style="padding:4px 8px;font-size:11px" onclick="delTabPresetIdx('+i+')">X</button></span></div>';}});if(!pl.innerHTML)pl.innerHTML='<div style="font-size:12px;color:var(--text2);padding:4px">No presets saved</div>';}
   if(st.nsEn!==undefined&&st.full){
@@ -873,6 +875,7 @@ void WebUI::handleWebSocketMessage(AsyncWebSocketClient* client, uint8_t* data, 
     else if (cmd == "buzztest") { m_buzzerTestRequested = true; }
     else if (cmd == "clockwork") { m_settings->clockworkBuzzer = extractBool(msg, "enabled"); m_pendingSave = millis(); }
 
+    else if (cmd == "bday_interval") { int v = extractInt(msg, "value"); if (v >= 10 && v <= 240) { m_settings->birthdayIntervalMins = v; m_pendingSave = millis(); } }
     else if (cmd == "bday_add") { int idx = m_settings->birthdayCount; if (idx < MAX_BIRTHDAYS) { Birthday b; String n = extractString(msg, "name"); strncpy(b.name, n.c_str(), 15); b.name[15] = 0; b.day = extractInt(msg, "day"); b.month = extractInt(msg, "month"); m_configStore->saveBirthday(idx, b); m_settings->birthdayCount = idx + 1; Preferences p; p.begin(PREFS_NS, false); p.putUChar("bdCnt", m_settings->birthdayCount); p.end(); } if (m_ws) m_ws->textAll(buildStateJSON()); return; }
     else if (cmd == "bday_del") { int i = extractInt(msg, "index"); if (i >= 0 && i < m_settings->birthdayCount) { for (int j = i; j < m_settings->birthdayCount - 1; j++) { Birthday b; m_configStore->loadBirthday(j + 1, b); m_configStore->saveBirthday(j, b); } m_settings->birthdayCount--; Birthday empty; m_configStore->saveBirthday(m_settings->birthdayCount, empty); Preferences p; p.begin(PREFS_NS, false); p.putUChar("bdCnt", m_settings->birthdayCount); p.end(); } if (m_ws) m_ws->textAll(buildStateJSON()); return; }
     else if (cmd == "tab_preset_save") { String n = extractString(msg, "name"); int w = extractInt(msg, "work"), r = extractInt(msg, "rest"), iv = extractInt(msg, "intervals"); TabataPreset p; strncpy(p.name, n.c_str(), 15); p.name[15] = 0; p.workSec = w; p.restSec = r; p.intervals = iv; for (int i = 0; i < MAX_TABATA_PRESETS; i++) { TabataPreset ex; m_configStore->loadTabataPreset(i, ex); if (ex.name[0] == 0) { m_configStore->saveTabataPreset(i, p); break; } } if (m_ws) m_ws->textAll(buildStateJSON()); return; }
@@ -968,6 +971,7 @@ String WebUI::buildStateJSON() {
     j += ",\"cwBuzz\":"; j += m_settings->clockworkBuzzer ? "true" : "false";
 
     j += ",\"rssi\":"; j += WiFi.RSSI();
+    j += ",\"bdIntv\":"; j += m_settings->birthdayIntervalMins;
     j += ",\"bdays\":[";
     for (int i = 0; i < m_settings->birthdayCount && i < MAX_BIRTHDAYS; i++) {
         Birthday b; m_configStore->loadBirthday(i, b);

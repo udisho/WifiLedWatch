@@ -57,6 +57,7 @@ struct WatchSettings {
     uint8_t colorMode = 0;
     // Birthday count (actual data in NVS)
     uint8_t birthdayCount = 0;
+    uint8_t birthdayIntervalMins = 60;
     // Weather
     bool showTempEnabled = false;
     bool tempFeelsLike = false;        // false=actual, true=feels_like
