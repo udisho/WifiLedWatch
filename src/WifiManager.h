@@ -12,11 +12,6 @@
 #define WIFI_POWER_SAVE   true
 #define WIFI_POWER_FULL   false
 
-struct PeerInfo {
-    String ip;
-    String name;
-};
-
 enum WifiState {
     WIFI_STATE_IDLE,
     WIFI_STATE_CONNECTING,
@@ -40,10 +35,6 @@ public:
     // Power management
     void setWifiPowerSave(bool enable);
     bool isWifiLost() const { return m_wifiWasConnected && m_state == WIFI_STATE_RECONNECTING; }
-
-    // Peer discovery
-    int getPeerCount() const { return m_peerCount; }
-    const PeerInfo& getPeer(int i) const { return m_peers[i]; }
 
     // Credentials management (NVS)
     bool loadCredentials();
@@ -74,13 +65,6 @@ private:
     void stopCaptivePortal();
     void startConnection();
 
-    // Peer discovery
-    PeerInfo m_peers[MAX_PEERS];
-    int m_peerCount = 0;
-    unsigned long m_lastPeerScan = 0;
-    bool m_peerScanRunning = false;
-    void scanPeers();
-    static void scanPeersTask(void* param);
 };
 
 #endif // WIFI_MANAGER_H

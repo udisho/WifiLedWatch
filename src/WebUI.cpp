@@ -3,6 +3,7 @@
 #include "TimeManager.h"
 #include "ConfigStore.h"
 #include "WifiManager.h"
+#include "Heartbeat.h"
 #include <Preferences.h>
 #include <WiFi.h>
 #include <Arduino.h>
@@ -61,7 +62,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .btn:active{transform:scale(.96)}
 .btn-primary{background:var(--accent);color:#000}
 .btn-danger{background:var(--danger);color:#fff}
-.btn-secondary{background:var(--btn);color:var(--text)}
+.btn-secondary{background:var(--btn);color:var(--text)}.btn-accent{background:#6e7dff;color:#fff}
 .colors{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:10px;max-width:320px}
 .color-dot{width:100%;max-width:44px;aspect-ratio:1;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:.15s;touch-action:manipulation}
 .color-dot:hover,.color-dot.active{border-color:#fff;transform:scale(1.15)}
@@ -180,6 +181,7 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
     <div class="sw-time" id="swDisp">00:00.0</div>
     <div class="btn-row">
       <button class="btn" id="swToggle" onclick="swToggle()">Start</button>
+      <button class="btn btn-accent" id="swBcastBtn" onclick="swToggle(true)" style="display:none;font-size:11px;padding:8px 12px">All Watches</button>
       <button class="btn btn-secondary" id="swReset2" onclick="send({cmd:'sw',action:'reset'})" style="display:none">Reset</button>
     </div>
   </div>
@@ -192,6 +194,7 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
     <div class="btn-row">
       <button class="btn btn-secondary" id="tmSetBtn" onclick="tmSet()">Set</button>
       <button class="btn" id="tmToggle" onclick="tmToggle()">Start</button>
+      <button class="btn btn-accent" id="tmBcastBtn" onclick="tmToggle(true)" style="display:none;font-size:11px;padding:8px 12px">All Watches</button>
     </div>
   </div>
 </div>
@@ -206,6 +209,7 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
       </div>
       <div style="display:flex;flex-direction:column;gap:6px">
         <button class="btn" id="tabToggle" onclick="tabToggle()" style="padding:10px 24px;font-size:14px">Start</button>
+        <button class="btn btn-accent" id="tabBcastBtn" onclick="tabToggle(true)" style="display:none;font-size:11px;padding:6px 12px">All Watches</button>
         <button class="btn btn-secondary" id="tabReset2" onclick="send({cmd:'tabata',action:'reset'})" style="display:none;padding:8px 20px;font-size:12px">Reset</button>
       </div>
     </div>
@@ -249,6 +253,7 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
     <div class="tab-info" id="pomInfo">Interval: 1 / 4</div>
     <div class="btn-row">
       <button class="btn" id="pomToggle" onclick="pomToggle()">Start</button>
+      <button class="btn btn-accent" id="pomBcastBtn" onclick="pomToggle(true)" style="display:none;font-size:11px;padding:8px 12px">All Watches</button>
       <button class="btn btn-secondary" id="pomReset2" onclick="send({cmd:'pom',action:'reset'})" style="display:none">Reset</button>
     </div>
   </div>
@@ -383,34 +388,6 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
     </div>
   </div>
 
-  <div class="card" id="peerCard" style="display:none">
-    <h3>Linked Watch</h3>
-    <div id="peerStatus" style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-      <span class="dot off" id="peerDot"></span>
-      <span style="font-size:14px" id="peerName">--</span>
-      <span style="font-size:11px;color:var(--text2)" id="peerAddr"></span>
-    </div>
-    <div id="peerControls" style="display:none">
-      <div class="slider-row"><label>Brightness</label><input type="range" id="peerBright" min="5" max="230" value="100" oninput="document.getElementById('peerBrightVal').textContent=this.value" onchange="peerSend({cmd:'brightness',value:+this.value})"><span class="val" id="peerBrightVal">100</span></div>
-      <div style="margin-top:12px"><span style="font-size:13px;color:var(--text2)">Color Mode</span>
-        <div class="radio-group" style="margin-top:6px">
-          <label><input type="radio" name="peerClrMode" value="0" checked onchange="peerSend({cmd:'colormode',value:0})">Static</label>
-          <label><input type="radio" name="peerClrMode" value="1" onchange="peerSend({cmd:'colormode',value:1})">Rainbow</label>
-          <label><input type="radio" name="peerClrMode" value="2" onchange="peerSend({cmd:'colormode',value:2})">Crazy</label>
-          <label><input type="radio" name="peerClrMode" value="3" onchange="peerSend({cmd:'colormode',value:3})">Pulse</label>
-        </div>
-      </div>
-      <div style="margin-top:12px"><span style="font-size:13px;color:var(--text2)">Color</span>
-        <div class="colors" id="peerColorGrid" style="margin-top:6px"></div>
-        <div class="custom-color" style="margin-top:8px">
-          <span style="font-size:13px;color:var(--text2)">Custom:</span>
-          <input type="color" id="peerCustomColor" value="#00ff00">
-          <button class="btn btn-secondary" style="padding:8px 14px;font-size:12px" onclick="applyPeerCustomColor()">Apply</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <div class="card">
     <h3>WiFi</h3>
     <p style="font-size:14px;color:var(--text2)">SSID: <strong id="wifiSSID">--</strong></p>
@@ -509,7 +486,6 @@ function init(){
   document.getElementById('nsBright').oninput=function(){document.getElementById('nsBrightVal').textContent=this.value;};
   document.getElementById('pomIntSlider').oninput=function(){document.getElementById('pomIntVal').textContent=this.value;};
   document.getElementById('dateIntSlider').oninput=function(){document.getElementById('dateIntVal').textContent=this.value;};
-  initPeerColorGrid();
   initCities();
   connectWS();
 }
@@ -645,22 +621,25 @@ function updateUI(){var _sy=window.pageYOffset;
   if(st.temp!==undefined&&st.temp!==prev.temp){prev.temp=st.temp;var tc=st.temp,tq=tc<50?'Normal':tc<60?'Warm':tc<65?'Hot':'THROTTLED',tcl=tc<50?'var(--success)':tc<60?'#FFA500':'var(--danger)';var tl='CPU: <strong style="color:'+tcl+'">'+tc+'&deg;C ('+tq+')</strong>';if(st.thermThrot)tl+=' <span style="color:var(--danger);font-size:11px">&#9888; Brightness reduced</span>';document.getElementById('tempLine').innerHTML=tl;}
   if(st.ssid)document.getElementById('wifiSSID').textContent=st.ssid;
   if(st.ip)document.getElementById('wifiIP').textContent=st.ip;
-  if(st.peers&&st.peers.length>0){var p=st.peers[0];connectPeer(p.ip,p.name);}else if(st.peers&&st.peers.length===0&&peerIp){disconnectPeer();}
+  var hasPeers=st.peers&&st.peers>0;
+  if(hasPeers!==prev.hasPeers){prev.hasPeers=hasPeers;['swBcastBtn','tmBcastBtn','tabBcastBtn','pomBcastBtn'].forEach(function(id){document.getElementById(id).style.display=hasPeers?'':'none';});}
+  if(st.bcasting&&!prev.bcasting){prev.bcasting=true;document.getElementById('timeDisp').insertAdjacentHTML('afterend','<div id="bcastBadge" style="text-align:center;font-size:11px;color:#6e7dff;font-weight:700;margin-top:4px">BROADCASTING TO ALL</div>');}
+  if(!st.bcasting&&prev.bcasting){prev.bcasting=false;var bb=document.getElementById('bcastBadge');if(bb)bb.remove();}
   if(window.pageYOffset!==_sy)window.scrollTo(0,_sy);
 }
-function swToggle(){
+function swToggle(bc){
   if(st.swRun) send({cmd:'sw',action:'stop'});
-  else send({cmd:'sw',action:'start'});
+  else send({cmd:'sw',action:'start',broadcast:!!bc});
 }
 function tmSet(){var d=(getWheel('timerMinW')*60+getWheel('timerSecW'))*1000;send({cmd:'timer',action:'set',duration:d});}
-function tmToggle(){
+function tmToggle(bc){
   if(st.tmRun) send({cmd:'timer',action:'stop'});
-  else if(st.tmMs>0&&!st.tmDone) send({cmd:'timer',action:'start'});
-  else send({cmd:'timer',action:'start',duration:(getWheel('timerMinW')*60+getWheel('timerSecW'))*1000});
+  else if(st.tmMs>0&&!st.tmDone) send({cmd:'timer',action:'start',broadcast:!!bc});
+  else send({cmd:'timer',action:'start',duration:(getWheel('timerMinW')*60+getWheel('timerSecW'))*1000,broadcast:!!bc});
 }
-function tabToggle(){
+function tabToggle(bc){
   if(st.tabRun) send({cmd:'tabata',action:'stop'});
-  else send({cmd:'tabata',action:'start'});
+  else send({cmd:'tabata',action:'start',broadcast:!!bc});
 }
 
 function saveTabata(){var ws=getWheel('tabWorkMinW')*60+getWheel('tabWorkSecW'),rs=getWheel('tabRestMinW')*60+getWheel('tabRestSecW');send({cmd:'tabata_cfg',work:ws||20,rest:rs||10,intervals:getWheel('tabIntW')||8,workColor:+document.getElementById('tabWC').value,restColor:+document.getElementById('tabRC').value});}
@@ -673,7 +652,7 @@ function resetDSTIsrael(){sendSave({cmd:'dst_reset_israel'});}
 function resetWifi(){if(confirm('Reset WiFi? Watch will restart.'))send({cmd:'resetwifi'});}
 function applyCustomColor(){const h=document.getElementById('customColor').value;send({cmd:'customcolor',r:parseInt(h.substr(1,2),16),g:parseInt(h.substr(3,2),16),b:parseInt(h.substr(5,2),16)});}
 function saveNightShift(){sendSave({cmd:'nightshift',enabled:document.getElementById('nsToggle').checked,start:+document.getElementById('nsStart').value,end:+document.getElementById('nsEnd').value,bright:+document.getElementById('nsBright').value});}
-function pomToggle(){if(st.pomRun)send({cmd:'pom',action:'stop'});else send({cmd:'pom',action:'start'});}
+function pomToggle(bc){if(st.pomRun)send({cmd:'pom',action:'stop'});else send({cmd:'pom',action:'start',broadcast:!!bc});}
 function savePomInt(){send({cmd:'pom_cfg',intervals:+document.getElementById('pomIntSlider').value});}
 const CITIES=[['Jerusalem',31.77,35.22],['Tel Aviv',32.08,34.78],['Haifa',32.79,34.99],['Beer Sheva',31.25,34.79],['Rishon LeZion',31.96,34.80],['Petah Tikva',32.09,34.89],['Ashdod',31.80,34.65],['Netanya',32.33,34.86],['Holon',32.02,34.78],['Bnei Brak',32.09,34.83],['Ramat Gan',32.07,34.82],['Rehovot',31.90,34.81],['Ashkelon',31.67,34.57],['Bat Yam',32.02,34.75],['Herzliya',32.16,34.84],['Kfar Saba',32.18,34.91],['Hadera',32.44,34.92],['Modiin',31.90,35.01],['Nazareth',32.70,35.30],['Eilat',29.56,34.95],['Raanana',32.18,34.87],['Tiberias',32.79,35.53],['Acre',32.93,35.07],['Nahariya',33.01,35.10],['Kiryat Gat',31.61,34.76],['Afula',32.61,35.29],['Carmiel',32.91,35.30],['Arad',31.26,35.21]];
 function initCities(){var s=document.getElementById('locSelect');var other=s.lastChild;CITIES.sort(function(a,b){return a[0].localeCompare(b[0]);}).forEach(function(c){var o=document.createElement('option');o.value=c[1].toFixed(2)+','+c[2].toFixed(2);o.textContent=c[0];s.insertBefore(o,other);});}
@@ -687,32 +666,6 @@ function saveTabPreset(){var n=document.getElementById('tabPresetName').value;if
 function delTabPreset(){var i=+document.getElementById('tabPresetSel').value;sendSave({cmd:'tab_preset_del',index:i});}
 function loadTabPresetIdx(i){sendSave({cmd:'tab_preset_load',index:i});}
 function delTabPresetIdx(i){sendSave({cmd:'tab_preset_del',index:i});}
-let peerWs=null,peerSt=null,peerIp=null;
-function peerSend(o){if(peerWs&&peerWs.readyState===1)peerWs.send(JSON.stringify(o));}
-function connectPeer(ip,name){
-  if(peerIp===ip&&peerWs&&peerWs.readyState<=1)return;
-  if(peerWs){peerWs.close();peerWs=null;}
-  peerIp=ip;peerSt=null;
-  document.getElementById('peerCard').style.display='';
-  document.getElementById('peerName').textContent=name||ip;
-  document.getElementById('peerAddr').textContent=ip;
-  document.getElementById('peerDot').className='dot off';
-  document.getElementById('peerControls').style.display='none';
-  peerWs=new WebSocket('ws://'+ip+'/ws');
-  peerWs.onmessage=function(e){try{peerSt=JSON.parse(e.data);updatePeerUI();}catch(x){}};
-  peerWs.onopen=function(){document.getElementById('peerDot').className='dot on';document.getElementById('peerControls').style.display='';};
-  peerWs.onclose=function(){peerWs=null;peerSt=null;document.getElementById('peerDot').className='dot off';document.getElementById('peerControls').style.display='none';};
-  peerWs.onerror=function(){peerWs.close();};
-}
-function disconnectPeer(){if(peerWs){peerWs.close();peerWs=null;}peerIp=null;peerSt=null;document.getElementById('peerCard').style.display='none';}
-function updatePeerUI(){
-  if(!peerSt)return;
-  if(peerSt.bright!==undefined&&peerSt.full){document.getElementById('peerBright').value=peerSt.bright;document.getElementById('peerBrightVal').textContent=peerSt.bright;}
-  if(peerSt.clrMode!==undefined&&peerSt.full){var r=document.querySelector('input[name=peerClrMode][value="'+peerSt.clrMode+'"]');if(r)r.checked=true;}
-  if(peerSt.full)document.querySelectorAll('#peerColorGrid .color-dot').forEach(function(d,i){d.classList.toggle('active',i===peerSt.colorIdx);});
-}
-function initPeerColorGrid(){var g=document.getElementById('peerColorGrid');C.forEach(function(c,i){var d=document.createElement('div');d.className='color-dot';d.style.background=c.c;d.title=c.n;d.onclick=function(){peerSend({cmd:'color',index:i});};g.appendChild(d);});}
-function applyPeerCustomColor(){var h=document.getElementById('peerCustomColor').value;peerSend({cmd:'customcolor',r:parseInt(h.substr(1,2),16),g:parseInt(h.substr(3,2),16),b:parseInt(h.substr(5,2),16)});}
 function startOTA(){
   var pass=document.getElementById('otaPass').value;
   if(pass!=='neotick2024'){alert('Wrong password');return;}
@@ -848,9 +801,9 @@ void WebUI::handleWebSocketMessage(AsyncWebSocketClient* client, uint8_t* data, 
     else if (cmd == "brightness") { int v = extractInt(msg, "value"); if (v >= 0 && v <= MAX_BRIGHTNESS) { m_display->setBrightness(v); m_settings->brightness = v; m_pendingSave = millis(); } }
     else if (cmd == "mode") { int v = extractInt(msg, "value"); if (v >= 0 && v <= 4) m_mode = (DisplayMode)v; }
     else if (cmd == "clockfmt") { m_settings->clockShowMMSS = extractBool(msg, "mmss"); m_pendingSave = millis(); }
-    else if (cmd == "sw") { String a = extractString(msg, "action"); if (a == "start") stopwatchStart(); else if (a == "restart") stopwatchRestart(); else if (a == "stop") stopwatchStop(); else if (a == "reset") stopwatchReset(); }
-    else if (cmd == "timer") { String a = extractString(msg, "action"); if (a == "start") { int d = extractInt(msg, "duration"); if (d > 0) timerSet(d); timerStart(); } else if (a == "set") { int d = extractInt(msg, "duration"); if (d > 0) timerSet(d); } else if (a == "stop") timerStop(); else if (a == "reset") timerReset(); }
-    else if (cmd == "tabata") { String a = extractString(msg, "action"); if (a == "start") tabataStart(); else if (a == "stop") tabataStop(); else if (a == "reset") tabataReset(); }
+    else if (cmd == "sw") { String a = extractString(msg, "action"); if (a == "start") { stopwatchStart(); if (extractBool(msg, "broadcast") && m_heartbeat) m_heartbeat->startBroadcast(MODE_STOPWATCH, true, 0, true, 1, 1, false); } else if (a == "restart") { stopwatchRestart(); if (extractBool(msg, "broadcast") && m_heartbeat) m_heartbeat->startBroadcast(MODE_STOPWATCH, true, 0, true, 1, 1, false); } else if (a == "stop") { stopwatchStop(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } else if (a == "reset") { stopwatchReset(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } }
+    else if (cmd == "timer") { String a = extractString(msg, "action"); if (a == "start") { int d = extractInt(msg, "duration"); if (d > 0) timerSet(d); timerStart(); if (extractBool(msg, "broadcast") && m_heartbeat) m_heartbeat->startBroadcast(MODE_TIMER, true, getTimerRemaining(), true, 1, 1, false); } else if (a == "set") { int d = extractInt(msg, "duration"); if (d > 0) timerSet(d); } else if (a == "stop") { timerStop(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } else if (a == "reset") { timerReset(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } }
+    else if (cmd == "tabata") { String a = extractString(msg, "action"); if (a == "start") { tabataStart(); if (extractBool(msg, "broadcast") && m_heartbeat) m_heartbeat->startBroadcast(MODE_TABATA, true, getTabataPhaseRemaining(), true, 1, m_settings->tabata.intervals, false); } else if (a == "stop") { tabataStop(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } else if (a == "reset") { tabataReset(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } }
     else if (cmd == "tabata_cfg") { int w = extractInt(msg, "work"), r = extractInt(msg, "rest"), n = extractInt(msg, "intervals"), wc = extractInt(msg, "workColor"), rc = extractInt(msg, "restColor"); if (w > 0) m_settings->tabata.workSec = w; if (r > 0) m_settings->tabata.restSec = r; if (n > 0) m_settings->tabata.intervals = n; if (wc >= 0) m_settings->tabata.workColorIdx = wc; if (rc >= 0) m_settings->tabata.restColorIdx = rc; m_pendingSave = millis(); tabataReset(); }
     else if (cmd == "timezone") { long v = (long)extractInt(msg, "value"); m_timeMgr->setTimezoneOffset(v); m_settings->timezoneOffset = v; m_pendingSave = millis(); }
     else if (cmd == "dst") { int v = extractInt(msg, "value"); m_timeMgr->setDSTMode(v); m_settings->dstMode = v; m_pendingSave = millis(); }
@@ -861,7 +814,7 @@ void WebUI::handleWebSocketMessage(AsyncWebSocketClient* client, uint8_t* data, 
     else if (cmd == "colormode") { int v = extractInt(msg, "value"); if (v >= 0 && v <= 3) { m_settings->colorMode = v; m_pendingSave = millis(); } }
     else if (cmd == "animtoggle") { m_settings->animateTransitions = extractBool(msg, "value"); m_pendingSave = millis(); }
     else if (cmd == "nightshift") { m_settings->nightShiftEnabled = extractBool(msg, "enabled"); int sh = extractInt(msg, "start"), eh = extractInt(msg, "end"), nb = extractInt(msg, "bright"); if (sh >= 0 && sh <= 23) m_settings->nightShiftStartHour = sh; if (eh >= 0 && eh <= 23) m_settings->nightShiftEndHour = eh; if (nb >= 0 && nb <= MAX_BRIGHTNESS) m_settings->nightShiftBrightness = nb; m_pendingSave = millis(); }
-    else if (cmd == "pom") { String a = extractString(msg, "action"); if (a == "start") pomodoroStart(); else if (a == "stop") pomodoroStop(); else if (a == "reset") pomodoroReset(); }
+    else if (cmd == "pom") { String a = extractString(msg, "action"); if (a == "start") { pomodoroStart(); if (extractBool(msg, "broadcast") && m_heartbeat) m_heartbeat->startBroadcast(MODE_POMODORO, true, getPomodoroPhaseRemaining(), true, 1, m_settings->pomodoroIntervals, false); } else if (a == "stop") { pomodoroStop(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } else if (a == "reset") { pomodoroReset(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } }
     else if (cmd == "pom_cfg") { int n = extractInt(msg, "intervals"); if (n > 0 && n <= 8) { m_settings->pomodoroIntervals = n; m_pendingSave = millis(); } }
     else if (cmd == "datedisp") { m_settings->showDateEnabled = extractBool(msg, "enabled"); m_settings->showTempEnabled = extractBool(msg, "tempEn"); m_settings->tempFeelsLike = extractBool(msg, "feelsLike"); m_settings->tempColorByValue = extractBool(msg, "tempClr"); int iv = extractInt(msg, "interval"); if (iv > 0) m_settings->showDateIntervalSec = iv; m_pendingSave = millis(); }
     else if (cmd == "setloc") { m_settings->weatherLat = extractFloat(msg, "lat"); m_settings->weatherLon = extractFloat(msg, "lon"); String cn = extractString(msg, "city"); extern char weatherCity[32]; if (cn.length()) { strncpy(weatherCity, cn.c_str(), 31); weatherCity[31] = 0; } else if (m_settings->weatherLat == 0) { weatherCity[0] = 0; } m_pendingSave = millis(); extern volatile bool weatherFetchNow; weatherFetchNow = true; }
@@ -915,6 +868,10 @@ String WebUI::buildFastJSON() {
     int cpuTemp = (int)temperatureRead();
     j += ",\"temp\":"; j += cpuTemp;
     if (cpuTemp >= THERMAL_THROTTLE_TEMP) { j += ",\"thermThrot\":true"; }
+    if (m_heartbeat) {
+        j += ",\"peers\":"; j += m_heartbeat->getPeerCount();
+        if (m_heartbeat->isBroadcasting()) j += ",\"bcasting\":true";
+    }
     j += "}";
     return j;
 }
@@ -980,24 +937,57 @@ String WebUI::buildStateJSON() {
     j += "]";
     j += ",\"ssid\":\""; j += WiFi.SSID(); j += "\"";
     j += ",\"ip\":\""; j += WiFi.localIP().toString(); j += "\"";
-    j += ",\"peers\":[";
-    if (m_wifiMgr) {
-        for (int i = 0; i < m_wifiMgr->getPeerCount(); i++) {
-            if (i > 0) j += ",";
-            j += "{\"ip\":\""; j += m_wifiMgr->getPeer(i).ip;
-            j += "\",\"name\":\""; j += m_wifiMgr->getPeer(i).name; j += "\"}";
-        }
-    }
-    j += "]}";
+    j += "}";
     return j;
 }
 
 // Regular broadcast: fast JSON only. Full state sent on connect + after commands.
 void WebUI::broadcastState() { if (!m_ws || m_ws->count() == 0) return; m_ws->textAll(buildFastJSON()); }
 
+// ======================== Hub Picker ========================
+String WebUI::buildHubHTML() {
+    String h = F("<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>NeoTick Hub</title>"
+    "<style>:root{--bg:#0f0f23;--card:#1a1a2e;--accent:#44d9e1;--text:#e0e0e0;--text2:#999}"
+    "*{margin:0;padding:0;box-sizing:border-box}"
+    "body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:20px}"
+    ".hdr{text-align:center;padding:30px 0 20px}.hdr h1{font-size:28px;color:var(--accent);font-weight:800}.hdr p{color:var(--text2);font-size:14px;margin-top:4px}"
+    ".grid{max-width:500px;margin:0 auto;display:flex;flex-direction:column;gap:12px}"
+    ".dev{background:var(--card);border-radius:14px;padding:20px 22px;text-decoration:none;color:var(--text);display:flex;align-items:center;gap:16px;border:2px solid transparent;transition:.15s}"
+    ".dev:hover,.dev:active{border-color:var(--accent);transform:scale(1.02)}"
+    ".dot{width:12px;height:12px;border-radius:50%;background:var(--accent);flex-shrink:0}"
+    ".info{flex:1}.name{font-size:17px;font-weight:700}.ip{font-size:13px;color:var(--text2);margin-top:2px}"
+    ".arr{color:var(--accent);font-size:20px}"
+    "</style></head><body>"
+    "<div class='hdr'><h1>NeoTick</h1><p>Select a watch to control</p></div><div class='grid'>");
+
+    // Add self
+    h += "<a class='dev' href='http://";
+    h += WiFi.localIP().toString();
+    h += "/'><span class='dot'></span><div class='info'><div class='name'>";
+    h += m_heartbeat->getDeviceName();
+    h += "</div><div class='ip'>";
+    h += WiFi.localIP().toString();
+    h += " (this watch)</div></div><span class='arr'>&#9654;</span></a>";
+
+    // Add peers
+    for (int i = 0; i < m_heartbeat->getPeerCount(); i++) {
+        const PeerInfo& p = m_heartbeat->getPeer(i);
+        h += "<a class='dev' href='http://";
+        h += p.ip;
+        h += "/'><span class='dot'></span><div class='info'><div class='name'>";
+        h += p.name.length() > 0 ? p.name : "NeoTick";
+        h += "</div><div class='ip'>";
+        h += p.ip;
+        h += "</div></div><span class='arr'>&#9654;</span></a>";
+    }
+
+    h += "</div></body></html>";
+    return h;
+}
+
 // ======================== Setup ========================
-void WebUI::begin(LedDisplay* display, TimeManager* timeMgr, ConfigStore* configStore, WatchSettings* settings, WifiManager* wifiMgr) {
-    m_display = display; m_timeMgr = timeMgr; m_configStore = configStore; m_settings = settings; m_wifiMgr = wifiMgr;
+void WebUI::begin(LedDisplay* display, TimeManager* timeMgr, ConfigStore* configStore, WatchSettings* settings, WifiManager* wifiMgr, Heartbeat* heartbeat) {
+    m_display = display; m_timeMgr = timeMgr; m_configStore = configStore; m_settings = settings; m_wifiMgr = wifiMgr; m_heartbeat = heartbeat;
     m_tabPhaseDuration = (unsigned long)m_settings->tabata.workSec * 1000;
     m_server = new AsyncWebServer(WEB_PORT);
     m_ws = new AsyncWebSocket(WS_PATH);
@@ -1012,16 +1002,31 @@ void WebUI::begin(LedDisplay* display, TimeManager* timeMgr, ConfigStore* config
         else if (type == WS_EVT_DATA) { handleWebSocketMessage(client, data, len); }
     });
     m_server->addHandler(m_ws);
-    m_server->on("/", HTTP_GET, [](AsyncWebServerRequest* r) {
-        size_t htmlLen = strlen_P(WEB_HTML);
-        AsyncWebServerResponse* resp = r->beginChunkedResponse("text/html",
-            [htmlLen](uint8_t* buffer, size_t maxLen, size_t index) -> size_t {
-                if (index >= htmlLen) return 0;
-                size_t len = std::min(maxLen, htmlLen - index);
-                memcpy_P((char*)buffer, WEB_HTML + index, len);
-                return len;
-            });
-        r->send(resp);
+
+    // Hub picker: if accessed via neotick.local and peers exist, show device picker
+    // Otherwise serve the normal watch UI
+    m_server->on("/", HTTP_GET, [this](AsyncWebServerRequest* r) {
+        bool viaLocal = false;
+        if (r->hasHeader("Host")) {
+            String host = r->header("Host");
+            viaLocal = host.startsWith("neotick.local");
+        }
+        if (viaLocal && m_heartbeat && m_heartbeat->getPeerCount() > 0) {
+            // Serve hub picker page
+            String html = buildHubHTML();
+            r->send(200, "text/html", html);
+        } else {
+            // Serve normal watch UI
+            size_t htmlLen = strlen_P(WEB_HTML);
+            AsyncWebServerResponse* resp = r->beginChunkedResponse("text/html",
+                [htmlLen](uint8_t* buffer, size_t maxLen, size_t index) -> size_t {
+                    if (index >= htmlLen) return 0;
+                    size_t len = std::min(maxLen, htmlLen - index);
+                    memcpy_P((char*)buffer, WEB_HTML + index, len);
+                    return len;
+                });
+            r->send(resp);
+        }
     });
     extern const char* getLogBuffer();
     m_server->on("/logs", HTTP_GET, [](AsyncWebServerRequest* r) { r->send(200, "text/plain", getLogBuffer()); });

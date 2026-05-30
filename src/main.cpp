@@ -8,12 +8,14 @@
 #include "WifiManager.h"
 #include "WebUI.h"
 #include "ConfigStore.h"
+#include "Heartbeat.h"
 
 LedDisplay   ledDisplay;
 TimeManager  timeManager;
 WifiManager  wifiManager;
 WebUI        webUI;
 ConfigStore  configStore;
+Heartbeat    heartbeat;
 WatchSettings settings;
 
 // Network-accessible log buffer
@@ -281,7 +283,10 @@ void loop() {
         timeManager.setTimezoneOffset(settings.timezoneOffset);
         timeManager.setDSTMode(settings.dstMode);
         timeManager.setDSTRules(settings.dstStart, settings.dstEnd);
-        webUI.begin(&ledDisplay, &timeManager, &configStore, &settings, &wifiManager);
+        webUI.begin(&ledDisplay, &timeManager, &configStore, &settings, &wifiManager, &heartbeat);
+
+        // Start heartbeat (UDP multicast peer discovery + mDNS election)
+        heartbeat.begin();
 
         // ArduinoOTA for PlatformIO uploads
         ArduinoOTA.setHostname("neotick");
@@ -304,6 +309,7 @@ void loop() {
     }
 
     ArduinoOTA.handle();
+    heartbeat.update();
     timeManager.update();
     webUI.setCurrentTemp(currentTemp, currentFeelsLike);
     webUI.setWeatherCity(weatherCity);
@@ -406,6 +412,28 @@ void loop() {
         ledDisplay.setOverrideColor(CHSV(rainbowHue, 255, 255));
     } else {
         ledDisplay.clearOverrideColor();
+    }
+
+    // === Broadcast session receiver: override display with received state ===
+    if (heartbeat.hasActiveSession() && !heartbeat.isBroadcasting()) {
+        const BroadcastSession& bs = heartbeat.getReceivedSession();
+        if (now - lastDisplayUpdate >= 100) {
+            lastDisplayUpdate = now;
+            if (bs.done) {
+                static bool bsFlash = false; bsFlash = !bsFlash;
+                if (bsFlash) showAndMirror(0); else showBlank();
+            } else if (bs.running || bs.remainingMs > 0) {
+                long s = (bs.remainingMs + 999) / 1000;
+                int display = (s / 60 > 99) ? 9999 : ((int)(s / 60) * 100 + (int)(s % 60));
+                // Color for tabata work/rest phases
+                if (bs.mode == MODE_TABATA) {
+                    if (bs.workPhase) ledDisplay.setOverrideColor(CRGB::Green);
+                    else ledDisplay.setOverrideColor(CRGB::Blue);
+                }
+                showAndMirror(display);
+            }
+        }
+        goto skipNormalDisplay;  // skip normal mode rendering
     }
 
     switch (mode) {
@@ -554,6 +582,43 @@ void loop() {
         }
     }
 
+    skipNormalDisplay:
+
+    // === Host-side broadcast: feed timer state to heartbeat ===
+    if (heartbeat.isBroadcasting()) {
+        bool running = false;
+        long remaining = 0;
+        bool workPhase = true;
+        int interval = 1;
+        bool done = false;
+        switch (mode) {
+            case MODE_STOPWATCH:
+                running = webUI.isStopwatchRunning();
+                remaining = webUI.getStopwatchElapsed();
+                break;
+            case MODE_TIMER:
+                running = webUI.isTimerRunning();
+                remaining = webUI.getTimerRemaining();
+                done = webUI.isTimerDone();
+                break;
+            case MODE_TABATA:
+                running = webUI.isTabataRunning();
+                remaining = webUI.getTabataPhaseRemaining();
+                workPhase = webUI.isTabataWorkPhase();
+                interval = webUI.getTabataCurrentInterval();
+                done = webUI.isTabataDone();
+                break;
+            case MODE_POMODORO:
+                running = webUI.isPomodoroRunning();
+                remaining = webUI.getPomodoroPhaseRemaining();
+                workPhase = webUI.isPomodoroWorkPhase();
+                interval = webUI.getPomodoroInterval();
+                done = webUI.isPomodoroDone();
+                break;
+            default: break;
+        }
+        heartbeat.updateBroadcast(running, remaining, workPhase, interval, done);
+    }
 
     // Brightness state machine: thermal > night shift > normal
     {

@@ -10,10 +10,11 @@
 class LedDisplay;
 class TimeManager;
 class WifiManager;
+class Heartbeat;
 
 class WebUI {
 public:
-    void begin(LedDisplay* display, TimeManager* timeMgr, ConfigStore* configStore, WatchSettings* settings, WifiManager* wifiMgr = nullptr);
+    void begin(LedDisplay* display, TimeManager* timeMgr, ConfigStore* configStore, WatchSettings* settings, WifiManager* wifiMgr = nullptr, Heartbeat* heartbeat = nullptr);
     void update();
 
     DisplayMode getMode() const { return m_mode; }
@@ -93,6 +94,7 @@ private:
     ConfigStore* m_configStore = nullptr;
     WatchSettings* m_settings = nullptr;
     WifiManager* m_wifiMgr = nullptr;
+    Heartbeat* m_heartbeat = nullptr;
 
     DisplayMode m_mode = MODE_CLOCK;
 
@@ -150,6 +152,7 @@ private:
     void broadcastState();
     String buildFastJSON();
     String buildStateJSON();
+    String buildHubHTML();
     void tabataAdvance();
     void pomodoroAdvance();
 };

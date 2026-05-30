@@ -35,10 +35,14 @@
 #define WS_FULL_BROADCAST_MS   30000 // periodic full state sync
 #define NVS_SAVE_DELAY_MS      2000  // debounce for settings writes
 
-// === Peer Discovery ===
-#define MDNS_SERVICE_NAME   "neotick"
-#define PEER_SCAN_INTERVAL  30000    // 30 seconds
-#define MAX_PEERS           4
+// === Heartbeat / Peer Discovery ===
+#define MDNS_SERVICE_NAME    "neotick"
+#define MULTICAST_IP         "239.1.2.3"
+#define MULTICAST_PORT       9999
+#define HEARTBEAT_INTERVAL   2000    // ms
+#define PEER_TIMEOUT         6000    // ms — evict after this
+#define MAX_PEERS            8
+#define ELECTION_STAGGER_MS  200     // per MAC byte for split-brain prevention
 
 // === NVS Keys ===
 #define NVS_NAMESPACE       "watchcfg"
