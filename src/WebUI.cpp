@@ -32,7 +32,11 @@ static const char WEB_HTML[] PROGMEM = R"=====(
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50'%3E%3Ctext x='25' y='35' text-anchor='middle' font-family='monospace' font-size='20' font-weight='bold' fill='%2300ff88'%3E12:34%3C/text%3E%3C/svg%3E">
+<meta name="apple-mobile-web-app-title" content="NeoTick">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon.svg">
+<link rel="icon" type="image/svg+xml" href="/icon.svg">
 <title>NeoTick</title>
 <style>
 :root{--bg:#0f0f23;--card:#1a1a2e;--accent:#44d9e1;--accent2:#6e7dff;--text:#e0e0e0;--text2:#999;--btn:#2d2d44;--success:#4CAF50;--danger:#e74c3c;--work:#4CAF50;--rest:#e74c3c}
@@ -1024,6 +1028,12 @@ void WebUI::begin(LedDisplay* display, TimeManager* timeMgr, ConfigStore* config
         r->send(resp);
     });
     extern const char* getLogBuffer();
+    m_server->on("/icon.svg", HTTP_GET, [](AsyncWebServerRequest* r) {
+        r->send(200, "image/svg+xml", "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='#0f0f23'/><text x='50' y='62' text-anchor='middle' font-family='monospace' font-size='36' font-weight='bold' fill='#44d9e1'>12:34</text></svg>");
+    });
+    m_server->on("/manifest.json", HTTP_GET, [](AsyncWebServerRequest* r) {
+        r->send(200, "application/manifest+json", "{\"name\":\"NeoTick\",\"short_name\":\"NeoTick\",\"display\":\"standalone\",\"background_color\":\"#0f0f23\",\"theme_color\":\"#0f0f23\",\"start_url\":\"/\",\"icons\":[{\"src\":\"/icon.svg\",\"sizes\":\"any\",\"type\":\"image/svg+xml\"}]}");
+    });
     m_server->on("/logs", HTTP_GET, [](AsyncWebServerRequest* r) { r->send(200, "text/plain", getLogBuffer()); });
     m_server->on("/update", HTTP_GET, [](AsyncWebServerRequest* r) {
         r->send(200, "text/html", "<html><body style='background:#0f0f23;color:#e0e0e0;font-family:sans-serif;text-align:center;padding:40px'><h2>Firmware Update</h2><p style='color:#e74c3c'>Developer Only - Use main UI for guided update</p><form id='f' method='POST' enctype='multipart/form-data'><input type='password' id='p' placeholder='Password' style='margin:10px;padding:8px'><br><input type='file' name='firmware' style='margin:10px'><br><input type='button' value='Upload' onclick=\"f.action='/update?pass='+encodeURIComponent(p.value);f.submit()\" style='padding:12px 24px;font-size:16px;cursor:pointer'></form></body></html>");
