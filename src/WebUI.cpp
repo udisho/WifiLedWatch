@@ -1373,7 +1373,7 @@ void WebUI::begin(LedDisplay* display, TimeManager* timeMgr, ConfigStore* config
     });
     m_server->on("/icon.png", HTTP_GET, [](AsyncWebServerRequest* r) {
         AsyncWebServerResponse* resp = r->beginResponse_P(200, "image/png", ICON_PNG, ICON_PNG_LEN);
-        resp->addHeader("Cache-Control", "max-age=86400");
+        resp->addHeader("Cache-Control", "no-cache");
         r->send(resp);
     });
     m_server->on("/manifest.json", HTTP_GET, [](AsyncWebServerRequest* r) {
