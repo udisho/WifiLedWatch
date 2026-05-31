@@ -52,8 +52,10 @@ void ConfigStore::load(WatchSettings& s) {
 
     s.pomodoroIntervals   = prefs.getUChar("pomInt", POMODORO_INTERVALS);
     s.colorMode           = prefs.getUChar("clrMode", 0);
-    s.birthdayCount       = prefs.getUChar("bdCnt", 0);
+    s.birthdayCount        = prefs.getUChar("bdCnt", 0);
     s.birthdayIntervalMins = prefs.getUChar("bdIntv", 60);
+    s.birthdayScrollCount  = prefs.getUChar("bdScrl", 1);
+    s.birthdayScrollSpeed  = prefs.getUChar("bdSpd", 3);
 
     s.showTempEnabled     = prefs.getBool("tempEn", false);
     s.tempFeelsLike       = prefs.getBool("tempFL", false);
@@ -108,6 +110,8 @@ void ConfigStore::save(const WatchSettings& s) {
     prefs.putUChar("clrMode", s.colorMode);
     prefs.putUChar("bdCnt", s.birthdayCount);
     prefs.putUChar("bdIntv", s.birthdayIntervalMins);
+    prefs.putUChar("bdScrl", s.birthdayScrollCount);
+    prefs.putUChar("bdSpd", s.birthdayScrollSpeed);
 
     prefs.putBool("tempEn", s.showTempEnabled);
     prefs.putBool("tempFL", s.tempFeelsLike);

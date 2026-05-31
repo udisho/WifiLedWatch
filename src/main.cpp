@@ -695,7 +695,10 @@ void loop() {
                 if (b.day == curDay && b.month == curMonth && b.name[0] != 0) {
                     char msg[64];
                     snprintf(msg, sizeof(msg), "HAPPY BDAY %s", b.name);
-                    ledDisplay.scrollText(msg, 250);
+                    static const int speedMap[5] = {500, 350, 200, 120, 60};
+                    int spd = speedMap[constrain(settings.birthdayScrollSpeed - 1, 0, 4)];
+                    for (int s = 0; s < constrain(settings.birthdayScrollCount, 1, 5); s++)
+                        ledDisplay.scrollText(msg, spd);
                     // Brief celebration: flash colors
                     for (int j = 0; j < 10; j++) {
                         ledDisplay.setOverrideColor(CHSV(random(256), 255, 255));
