@@ -48,7 +48,6 @@ bool colonState = false;
 int lastClockDisplay = -1;
 unsigned long lastDateShow = 0;
 unsigned long lastBirthdayCheck = 0;
-int lastBirthdayHour = -1;
 
 // Weather (fetched on Core 0 background task)
 volatile float currentTemp = NAN;
@@ -652,13 +651,9 @@ void loop() {
         if (m == 0 && h != lastChimeHour) {
             if (!isNightShiftActive()) {
                 lastChimeHour = h;
-                if (isBirthdayToday()) {
-                    queueHappyBirthday();
-                } else {
-                    int chimes = h % 12;
-                    if (chimes == 0) chimes = 12;
-                    queueCuckoo(chimes);
-                }
+                int chimes = h % 12;
+                if (chimes == 0) chimes = 12;
+                queueCuckoo(chimes);
             } else {
                 lastChimeHour = h;  // skip but mark so we don't retry
             }
@@ -748,11 +743,11 @@ void loop() {
         }
     }
 
-    // Birthday check (once per hour, on the hour)
+    // Birthday check (configurable interval)
+    unsigned long bdIntervalMs = (unsigned long)settings.birthdayIntervalMins * 60000UL;
     if (mode == MODE_CLOCK && settings.birthdayCount > 0 && timeManager.isTimeSynced()) {
-        int curH = timeManager.getHours();
-        if (curH != lastBirthdayHour) {
-            lastBirthdayHour = curH;
+        if (now - lastBirthdayCheck >= bdIntervalMs) {
+            lastBirthdayCheck = now;
             int curDay = timeManager.getDay();
             int curMonth = timeManager.getMonth();
             for (int i = 0; i < settings.birthdayCount && i < MAX_BIRTHDAYS; i++) {
@@ -761,7 +756,12 @@ void loop() {
                 if (b.day == curDay && b.month == curMonth && b.name[0] != 0) {
                     char msg[64];
                     snprintf(msg, sizeof(msg), "HAPPY BDAY %s", b.name);
-                    ledDisplay.scrollText(msg, 250);
+                    static const int speedMap[5] = {800, 650, 500, 350, 200};
+                    int spd = speedMap[constrain(settings.birthdayScrollSpeed - 1, 0, 4)];
+                    for (int s = 0; s < constrain(settings.birthdayScrollCount, 1, 5); s++)
+                        ledDisplay.scrollText(msg, spd);
+                    if (settings.birthdayBuzzer && settings.buzzerLevel > 0)
+                        queueHappyBirthday();
                     // Brief celebration: flash colors
                     for (int j = 0; j < 10; j++) {
                         ledDisplay.setOverrideColor(CHSV(random(256), 255, 255));
