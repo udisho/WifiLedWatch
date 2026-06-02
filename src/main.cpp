@@ -695,7 +695,7 @@ void loop() {
                 if (b.day == curDay && b.month == curMonth && b.name[0] != 0) {
                     char msg[64];
                     snprintf(msg, sizeof(msg), "HAPPY BDAY %s", b.name);
-                    static const int speedMap[5] = {500, 350, 200, 120, 60};
+                    static const int speedMap[5] = {800, 650, 500, 350, 200};
                     int spd = speedMap[constrain(settings.birthdayScrollSpeed - 1, 0, 4)];
                     for (int s = 0; s < constrain(settings.birthdayScrollCount, 1, 5); s++)
                         ledDisplay.scrollText(msg, spd);
