@@ -684,6 +684,7 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
     <div style="font-size:11px;color:var(--text2);margin-bottom:10px;line-height:1.5">On a birthday, the watch scrolls "HAPPY BDAY [name]" with a celebration animation.</div>
     <div class="slider-row" style="margin-bottom:10px"><label>Repeat every</label><select id="bdayIntv" onchange="send({cmd:'bday_interval',value:+this.value})" style="padding:6px 10px;border-radius:8px;border:1px solid #333;background:var(--btn);color:var(--text);font-size:13px"><option value="1">1 min</option><option value="2">2 min</option><option value="3">3 min</option><option value="4">4 min</option><option value="5">5 min</option><option value="6">6 min</option><option value="7">7 min</option><option value="8">8 min</option><option value="9">9 min</option><option value="10">10 min</option><option value="12">12 min</option><option value="15">15 min</option><option value="20">20 min</option><option value="30">30 min</option><option value="40">40 min</option><option value="50">50 min</option><option value="60" selected>60 min</option><option value="90">90 min</option><option value="120">120 min</option></select></div>
     <div class="slider-row" style="margin-bottom:10px"><label>Scroll times</label><select id="bdayScrl" onchange="send({cmd:'bday_scrollcount',value:+this.value})" style="padding:6px 10px;border-radius:8px;border:1px solid #333;background:var(--btn);color:var(--text);font-size:13px"><option value="1" selected>1×</option><option value="2">2×</option><option value="3">3×</option><option value="4">4×</option><option value="5">5×</option></select></div>
+    <div class="slider-row" style="margin-bottom:10px"><label>Play song</label><label class="tog"><input type="checkbox" id="bdayBuzz" onchange="send({cmd:'bday_buzzer',enabled:this.checked})"><span class="tog-sl"></span></label></div>
     <div class="slider-row" style="margin-bottom:10px"><label>Scroll speed</label><select id="bdaySpd" onchange="send({cmd:'bday_scrollspeed',value:+this.value})" style="padding:6px 10px;border-radius:8px;border:1px solid #333;background:var(--btn);color:var(--text);font-size:13px"><option value="1">Very slow</option><option value="2">Slow</option><option value="3" selected>Normal</option><option value="4">Fast</option><option value="5">Very fast</option></select></div>
     <div id="bdayList" style="margin-bottom:8px"></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
@@ -979,6 +980,7 @@ function updateUI(){var _sy=window.pageYOffset;
   if(st.bdIntv!==undefined&&st.full){var s=document.getElementById('bdayIntv');if(s)s.value=st.bdIntv;}
   if(st.bdScrl!==undefined&&st.full){var s=document.getElementById('bdayScrl');if(s)s.value=st.bdScrl;}
   if(st.bdSpd!==undefined&&st.full){var s=document.getElementById('bdaySpd');if(s)s.value=st.bdSpd;}
+  if(st.bdBuzz!==undefined&&st.full)document.getElementById('bdayBuzz').checked=st.bdBuzz;
   if(st.bdays){var bl=document.getElementById('bdayList');bl.innerHTML='';st.bdays.forEach(function(b,i){bl.innerHTML+='<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:13px"><span>'+b.n+' - '+P(b.d)+'/'+P(b.m)+'</span><button class="btn btn-danger" style="padding:4px 10px;font-size:11px" onclick="delBday('+i+')">X</button></div>';});}
   if(st.tabPresets){var sel=document.getElementById('tabPresetSel');sel.innerHTML='';var pl=document.getElementById('tabPresetList');pl.innerHTML='';st.tabPresets.forEach(function(p,i){if(p.n){var o=document.createElement('option');o.value=i;o.textContent=p.n;sel.appendChild(o);pl.innerHTML+='<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-bottom:4px;background:rgba(255,255,255,.03);border-radius:8px;font-size:13px"><span style="color:var(--text)">'+p.n+' <span style="color:var(--text2);font-size:11px">'+p.w+'s / '+p.r+'s / '+p.i+'r</span></span><span style="display:flex;gap:4px"><button class="btn btn-secondary" style="padding:4px 10px;font-size:11px" onclick="loadTabPresetIdx('+i+')">Load</button><button class="btn btn-danger" style="padding:4px 8px;font-size:11px" onclick="delTabPresetIdx('+i+')">X</button></span></div>';}});if(!pl.innerHTML)pl.innerHTML='<div style="font-size:12px;color:var(--text2);padding:4px">No presets saved</div>';}
   if(st.nsEn!==undefined&&st.full){
@@ -1216,6 +1218,7 @@ void WebUI::handleWebSocketMessage(AsyncWebSocketClient* client, uint8_t* data, 
     else if (cmd == "clockwork") { m_settings->clockworkBuzzer = extractBool(msg, "enabled"); m_pendingSave = millis(); }
 
     else if (cmd == "bday_interval") { int v = extractInt(msg, "value"); if (v >= 1 && v <= 240) { m_settings->birthdayIntervalMins = v; m_pendingSave = millis(); } }
+    else if (cmd == "bday_buzzer") { m_settings->birthdayBuzzer = extractBool(msg, "enabled"); m_pendingSave = millis(); }
     else if (cmd == "bday_scrollcount") { int v = extractInt(msg, "value"); if (v >= 1 && v <= 5) { m_settings->birthdayScrollCount = v; m_pendingSave = millis(); } }
     else if (cmd == "bday_scrollspeed") { int v = extractInt(msg, "value"); if (v >= 1 && v <= 5) { m_settings->birthdayScrollSpeed = v; m_pendingSave = millis(); } }
     else if (cmd == "bday_add") { int idx = m_settings->birthdayCount; if (idx < MAX_BIRTHDAYS) { Birthday b; String n = extractString(msg, "name"); strncpy(b.name, n.c_str(), 15); b.name[15] = 0; b.day = extractInt(msg, "day"); b.month = extractInt(msg, "month"); m_configStore->saveBirthday(idx, b); m_settings->birthdayCount = idx + 1; Preferences p; p.begin(PREFS_NS, false); p.putUChar("bdCnt", m_settings->birthdayCount); p.end(); } if (m_ws) m_ws->textAll(buildStateJSON()); return; }
@@ -1314,6 +1317,7 @@ String WebUI::buildStateJSON() {
 
     j += ",\"rssi\":"; j += WiFi.RSSI();
     j += ",\"bdIntv\":"; j += m_settings->birthdayIntervalMins;
+    j += ",\"bdBuzz\":"; j += m_settings->birthdayBuzzer ? "true" : "false";
     j += ",\"bdScrl\":"; j += m_settings->birthdayScrollCount;
     j += ",\"bdSpd\":";  j += m_settings->birthdayScrollSpeed;
     j += ",\"bdays\":[";

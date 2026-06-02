@@ -586,13 +586,9 @@ void loop() {
         if (m == 0 && h != lastChimeHour) {
             if (!isNightShiftActive()) {
                 lastChimeHour = h;
-                if (isBirthdayToday()) {
-                    queueHappyBirthday();
-                } else {
-                    int chimes = h % 12;
-                    if (chimes == 0) chimes = 12;
-                    queueCuckoo(chimes);
-                }
+                int chimes = h % 12;
+                if (chimes == 0) chimes = 12;
+                queueCuckoo(chimes);
             } else {
                 lastChimeHour = h;  // skip but mark so we don't retry
             }
@@ -699,6 +695,8 @@ void loop() {
                     int spd = speedMap[constrain(settings.birthdayScrollSpeed - 1, 0, 4)];
                     for (int s = 0; s < constrain(settings.birthdayScrollCount, 1, 5); s++)
                         ledDisplay.scrollText(msg, spd);
+                    if (settings.birthdayBuzzer && settings.buzzerLevel > 0)
+                        queueHappyBirthday();
                     // Brief celebration: flash colors
                     for (int j = 0; j < 10; j++) {
                         ledDisplay.setOverrideColor(CHSV(random(256), 255, 255));

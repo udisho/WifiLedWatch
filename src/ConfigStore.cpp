@@ -56,6 +56,7 @@ void ConfigStore::load(WatchSettings& s) {
     s.birthdayIntervalMins = prefs.getUChar("bdIntv", 60);
     s.birthdayScrollCount  = prefs.getUChar("bdScrl", 1);
     s.birthdayScrollSpeed  = prefs.getUChar("bdSpd", 3);
+    s.birthdayBuzzer       = prefs.getBool("bdBuzz", true);
 
     s.showTempEnabled     = prefs.getBool("tempEn", false);
     s.tempFeelsLike       = prefs.getBool("tempFL", false);
@@ -112,6 +113,7 @@ void ConfigStore::save(const WatchSettings& s) {
     prefs.putUChar("bdIntv", s.birthdayIntervalMins);
     prefs.putUChar("bdScrl", s.birthdayScrollCount);
     prefs.putUChar("bdSpd", s.birthdayScrollSpeed);
+    prefs.putBool("bdBuzz", s.birthdayBuzzer);
 
     prefs.putBool("tempEn", s.showTempEnabled);
     prefs.putBool("tempFL", s.tempFeelsLike);

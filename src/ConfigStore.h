@@ -60,6 +60,7 @@ struct WatchSettings {
     uint8_t birthdayIntervalMins = 60;
     uint8_t birthdayScrollCount = 1;   // 1-5 times
     uint8_t birthdayScrollSpeed = 3;   // 1=slow .. 5=fast
+    bool    birthdayBuzzer = true;
     // Weather
     bool showTempEnabled = false;
     bool tempFeelsLike = false;        // false=actual, true=feels_like
