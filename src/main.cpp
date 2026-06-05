@@ -460,7 +460,19 @@ void loop() {
                 static bool bsFlash = false; bsFlash = !bsFlash;
                 if (bsFlash) showAndMirror(0); else showBlank();
             } else if (bs.running || bs.remainingMs > 0) {
-                long s = (bs.remainingMs + 999) / 1000;
+                // Derive the value from the shared epoch anchor when available, so this follower
+                // ticks in lockstep with the host (no broadcast lag). Falls back to the last
+                // snapshot when paused or before NTP sync.
+                long effMs = bs.remainingMs;
+                if (bs.running && bs.anchorMs != 0 && timeManager.isTimeSynced()) {
+                    uint64_t nowMs = timeManager.getEpochMillis();
+                    if (bs.mode == MODE_STOPWATCH)
+                        effMs = (nowMs > bs.anchorMs) ? (long)(nowMs - bs.anchorMs) : 0;   // elapsed
+                    else
+                        effMs = (bs.anchorMs > nowMs) ? (long)(bs.anchorMs - nowMs) : 0;   // remaining
+                }
+                // Match the host's rounding: stopwatch floors, countdowns ceil.
+                long s = (bs.mode == MODE_STOPWATCH) ? (effMs / 1000) : ((effMs + 999) / 1000);
                 int display = (s / 60 > 99) ? 9999 : ((int)(s / 60) * 100 + (int)(s % 60));
                 // Color for tabata work/rest phases
                 if (bs.mode == MODE_TABATA) {
@@ -654,7 +666,15 @@ void loop() {
                 break;
             default: break;
         }
-        heartbeat.updateBroadcast(running, remaining, workPhase, interval, done);
+        // Anchor the running phase to the shared epoch clock so followers tick in lockstep:
+        // countdown -> epoch time it reaches 0; stopwatch -> epoch time it started.
+        uint64_t anchorMs = 0;
+        if (running && timeManager.isTimeSynced()) {
+            uint64_t nowMs = timeManager.getEpochMillis();
+            anchorMs = (mode == MODE_STOPWATCH) ? (nowMs - (uint64_t)remaining)
+                                                : (nowMs + (uint64_t)remaining);
+        }
+        heartbeat.updateBroadcast(running, remaining, workPhase, interval, done, anchorMs);
     }
 
     // Brightness state machine: thermal > night shift > normal
@@ -703,16 +723,22 @@ void loop() {
     // Phase 0 = temp (2s), phase 1 = date (2s). If only one enabled, single phase.
     static int infoPhase = 0;  // 0=temp, 1=date
     bool infoEnabled = (settings.showDateEnabled || settings.showTempEnabled) && timeManager.isTimeSynced();
-    // If the info display is disabled (or toggled off) while a date/temp frame is on screen,
-    // release the display so the clock resumes instead of freezing on the date.
-    if (!infoEnabled && dateShowing) {
+    // The date/temp rotation must not fight other things that own the display: the SYNC flash
+    // or a received broadcast session (on a follower, local mode stays CLOCK, so this is the
+    // only guard stopping the temp from flickering over the timer/stopwatch/SYNC).
+    bool displayBusy = webUI.syncFlashActive() ||
+                       (heartbeat.hasActiveSession() && !heartbeat.isBroadcasting());
+    bool infoActive = (mode == MODE_CLOCK) && infoEnabled && !displayBusy;
+    // If info shouldn't be showing right now (disabled, busy, or left clock mode) but a
+    // date/temp frame is up, release the display so it doesn't stick or flicker.
+    if (dateShowing && !infoActive) {
         dateShowing = false;
         ledDisplay.clearOverrideColor();
         webUI.setDisplayTemp(false);
         digitalWrite(COLON_LED_PIN, LOW);
         lastClockDisplay = -1;  // force the clock to redraw
     }
-    if (mode == MODE_CLOCK && infoEnabled) {
+    if (infoActive) {
         unsigned long infoIv = (unsigned long)settings.showDateIntervalSec * 1000UL;
         // Start the info rotation on a shared wall-clock boundary (epoch % interval == 0) so
         // every NTP-synced clock begins the date/temp sequence at the same instant. The 3s+3s

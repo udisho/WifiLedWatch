@@ -148,6 +148,10 @@ private:
 
     // Multi-watch config sync (set by WS cmd, executed from update() in main loop)
     bool m_syncRequested = false;
+    // Inbound config push: received on the async task, applied from update() (main loop) to
+    // avoid blocking the async callback with NVS/display work (which hangs the device).
+    bool m_applyConfigPending = false;
+    String m_pendingConfigBody;
     // While now < this, the main loop shows "SYNC" on the digits (set on send & receive)
     unsigned long m_syncFlashUntil = 0;
 

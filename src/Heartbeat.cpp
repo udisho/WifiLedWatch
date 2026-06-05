@@ -48,6 +48,7 @@ void Heartbeat::update() {
         doc["int"] = m_broadcastState.interval;
         doc["total"] = m_broadcastState.totalIntervals;
         doc["done"] = m_broadcastState.done;
+        doc["anc"] = m_broadcastState.anchorMs;
         char buf[200];
         serializeJson(doc, buf, sizeof(buf));
         m_udp.beginMulticastPacket();
@@ -131,6 +132,7 @@ void Heartbeat::receiveMessages() {
                 m_receivedSession.interval = doc["int"] | 1;
                 m_receivedSession.totalIntervals = doc["total"] | 1;
                 m_receivedSession.done = doc["done"] | false;
+                m_receivedSession.anchorMs = doc["anc"] | (uint64_t)0;
                 m_receivedSession.lastReceivedMs = millis();
             }
         }
@@ -254,13 +256,14 @@ void Heartbeat::startBroadcast(uint8_t mode, bool running, long remainingMs,
 }
 
 void Heartbeat::updateBroadcast(bool running, long remainingMs,
-                                 bool workPhase, int interval, bool done) {
+                                 bool workPhase, int interval, bool done, uint64_t anchorMs) {
     if (!m_broadcasting) return;
     m_broadcastState.running = running;
     m_broadcastState.remainingMs = remainingMs;
     m_broadcastState.workPhase = workPhase;
     m_broadcastState.interval = interval;
     m_broadcastState.done = done;
+    m_broadcastState.anchorMs = anchorMs;
 }
 
 void Heartbeat::stopBroadcast() {

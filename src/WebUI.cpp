@@ -1584,8 +1584,9 @@ void WebUI::begin(LedDisplay* display, TimeManager* timeMgr, ConfigStore* config
                 r->send(403, "text/plain", "FORBIDDEN");
                 return;
             }
-            if (body) { applyConfigJSON(*body); delete body; r->_tempObject = nullptr; }
-            if (m_ws && m_ws->count() > 0) m_ws->textAll(buildStateJSON());
+            // Hand off to the main loop — applying here (NVS + display work) hangs the
+            // async task and freezes the device. update() picks this up next iteration.
+            if (body) { m_pendingConfigBody = *body; m_applyConfigPending = true; delete body; r->_tempObject = nullptr; }
             r->send(200, "text/plain", "OK");
         },
         NULL,
@@ -1663,6 +1664,14 @@ void WebUI::update() {
 
     // Multi-watch config push (deferred out of the WS handler to avoid blocking it)
     if (m_syncRequested) { m_syncRequested = false; doConfigSync(); }
+
+    // Inbound config push, applied here (main loop) rather than in the async callback.
+    if (m_applyConfigPending) {
+        m_applyConfigPending = false;
+        applyConfigJSON(m_pendingConfigBody);
+        m_pendingConfigBody = String();  // release the buffer
+        if (m_ws && m_ws->count() > 0) m_ws->textAll(buildStateJSON());
+    }
 
     unsigned long iv = (m_swRunning || m_tabRunning) ? WS_BROADCAST_FAST_MS : WS_BROADCAST_SLOW_MS;
     if (now - m_lastBroadcast >= iv) { m_lastBroadcast = now; broadcastState(); m_ws->cleanupClients(); }

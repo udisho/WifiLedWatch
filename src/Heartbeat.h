@@ -25,6 +25,10 @@ struct BroadcastSession {
     int totalIntervals = 1;
     bool done = false;
     unsigned long lastReceivedMs = 0;
+    // Absolute NTP-epoch anchor (ms) for the running phase: for a countdown it's the epoch
+    // time it reaches 0; for the stopwatch it's the epoch time it started. 0 = not anchored
+    // (paused / host not NTP-synced). Lets every clock derive the same value frame-by-frame.
+    uint64_t anchorMs = 0;
 };
 
 class Heartbeat {
@@ -56,7 +60,7 @@ public:
     void startBroadcast(uint8_t mode, bool running, long remainingMs,
                         bool workPhase, int interval, int totalIntervals, bool done);
     void updateBroadcast(bool running, long remainingMs,
-                         bool workPhase, int interval, bool done);
+                         bool workPhase, int interval, bool done, uint64_t anchorMs = 0);
     void stopBroadcast();
     bool isBroadcasting() const { return m_broadcasting; }
 

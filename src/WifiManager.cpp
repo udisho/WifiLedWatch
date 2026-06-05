@@ -368,7 +368,15 @@ void WifiManager::startCaptivePortal() {
                 prefs.end();
                 Serial.printf("AP saved watch name: %s\n", devName.c_str());
             }
-            String hostLower = devName;  // already sanitized + lowercase
+            // Determine the host to advertise on the success page. If no name was given,
+            // fall back to the MAC-based default the firmware will register, so the user
+            // ALWAYS gets a working address (not a dead-end generic message).
+            String hostLower = devName;
+            if (hostLower.length() == 0) {
+                uint8_t mac[6]; WiFi.macAddress(mac);
+                char dh[16]; snprintf(dh, sizeof(dh), "%02x%02x", mac[4], mac[5]);
+                hostLower = dh;  // matches loadDeviceName default "NeoTick-XXXX" -> neotick-xxxx
+            }
 
             Serial.printf("AP received credentials for: %s (password: %s)\n",
                           m_apReceivedSSID.c_str(), m_apReceivedPassword.length() > 0 ? "yes" : "none");
