@@ -740,8 +740,13 @@ void loop() {
     // The date/temp rotation must not fight other things that own the display: the SYNC flash
     // or a received broadcast session (on a follower, local mode stays CLOCK, so this is the
     // only guard stopping the temp from flickering over the timer/stopwatch/SYNC).
-    bool displayBusy = webUI.syncFlashActive() ||
-                       (heartbeat.hasActiveSession() && !heartbeat.isBroadcasting());
+    // Only treat a received session as "owning the display" when it actually has something to
+    // show. An empty/idle session (e.g. an older host that keeps broadcasting after a timer
+    // ends) must NOT suppress the date/temp rotation.
+    const BroadcastSession& rsess = heartbeat.getReceivedSession();
+    bool sessionShowing = heartbeat.hasActiveSession() && !heartbeat.isBroadcasting() &&
+                          (rsess.done || rsess.running || rsess.remainingMs > 0);
+    bool displayBusy = webUI.syncFlashActive() || sessionShowing;
     bool infoActive = (mode == MODE_CLOCK) && infoEnabled && !displayBusy;
     // If info shouldn't be showing right now (disabled, busy, or left clock mode) but a
     // date/temp frame is up, release the display so it doesn't stick or flicker.
