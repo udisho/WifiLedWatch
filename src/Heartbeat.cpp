@@ -49,6 +49,8 @@ void Heartbeat::update() {
         doc["total"] = m_broadcastState.totalIntervals;
         doc["done"] = m_broadcastState.done;
         doc["anc"] = m_broadcastState.anchorMs;
+        doc["wc"] = m_broadcastState.workColorIdx;
+        doc["rc"] = m_broadcastState.restColorIdx;
         char buf[200];
         serializeJson(doc, buf, sizeof(buf));
         m_udp.beginMulticastPacket();
@@ -133,6 +135,8 @@ void Heartbeat::receiveMessages() {
                 m_receivedSession.totalIntervals = doc["total"] | 1;
                 m_receivedSession.done = doc["done"] | false;
                 m_receivedSession.anchorMs = doc["anc"] | (uint64_t)0;
+                m_receivedSession.workColorIdx = doc["wc"] | 1;
+                m_receivedSession.restColorIdx = doc["rc"] | 0;
                 m_receivedSession.lastReceivedMs = millis();
             }
         }
@@ -241,7 +245,8 @@ void Heartbeat::setDeviceName(const String& name) {
 
 // Host-side broadcast control
 void Heartbeat::startBroadcast(uint8_t mode, bool running, long remainingMs,
-                                bool workPhase, int interval, int totalIntervals, bool done) {
+                                bool workPhase, int interval, int totalIntervals, bool done,
+                                uint8_t workColorIdx, uint8_t restColorIdx) {
     m_broadcasting = true;
     m_broadcastState.active = true;
     m_broadcastState.mode = mode;
@@ -251,6 +256,8 @@ void Heartbeat::startBroadcast(uint8_t mode, bool running, long remainingMs,
     m_broadcastState.interval = interval;
     m_broadcastState.totalIntervals = totalIntervals;
     m_broadcastState.done = done;
+    m_broadcastState.workColorIdx = workColorIdx;
+    m_broadcastState.restColorIdx = restColorIdx;
     m_lastBroadcastSend = 0;  // send immediately
     Serial.printf("[heartbeat] broadcast started: mode=%d\n", mode);
 }

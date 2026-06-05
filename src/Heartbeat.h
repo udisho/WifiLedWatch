@@ -29,6 +29,9 @@ struct BroadcastSession {
     // time it reaches 0; for the stopwatch it's the epoch time it started. 0 = not anchored
     // (paused / host not NTP-synced). Lets every clock derive the same value frame-by-frame.
     uint64_t anchorMs = 0;
+    // Tabata work/rest color indices into COLOR_TABLE, so followers match the host's config.
+    uint8_t workColorIdx = 1;
+    uint8_t restColorIdx = 0;
 };
 
 class Heartbeat {
@@ -58,7 +61,8 @@ public:
 
     // Broadcast session (host side)
     void startBroadcast(uint8_t mode, bool running, long remainingMs,
-                        bool workPhase, int interval, int totalIntervals, bool done);
+                        bool workPhase, int interval, int totalIntervals, bool done,
+                        uint8_t workColorIdx = 1, uint8_t restColorIdx = 0);
     void updateBroadcast(bool running, long remainingMs,
                          bool workPhase, int interval, bool done, uint64_t anchorMs = 0);
     void stopBroadcast();

@@ -464,6 +464,7 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
 .wc-wrap::after{content:'';position:absolute;top:50%;left:2px;right:2px;height:40px;transform:translateY(-50%);border:2px solid var(--accent);border-radius:8px;pointer-events:none;z-index:2}
 .wc-label{font-size:12px;color:var(--text2);text-align:center;margin-top:2px}
 .wheel-sep{font-size:24px;font-weight:700;color:var(--accent);padding:0 4px}
+.numbox{width:48px;padding:5px;border-radius:6px;border:1px solid #333;background:var(--btn);color:var(--text);font-size:14px;text-align:center}
 .seg-bar.anim .seg-digit span{animation:segAnim .3s infinite alternate}
 @keyframes segAnim{0%{background:var(--accent)}50%{background:#6e7dff}100%{background:#ff6e7d}}
 .seg-bar.paused .seg-wrap,.seg-bar.paused .big-time{animation:pausePulse 2s ease-in-out infinite}
@@ -533,6 +534,7 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
   <div class="card">
     <div class="sw-time" id="timerDisp">01:00</div>
     <div class="wheel" id="timerSetRow"><div><div class="wc-wrap"><div class="wc" id="timerMinW"></div></div><div class="wc-label">min</div></div><div class="wheel-sep">:</div><div><div class="wc-wrap"><div class="wc" id="timerSecW"></div></div><div class="wc-label">sec</div></div></div>
+    <div style="text-align:center;margin:-6px 0 10px;font-size:12px;color:var(--text2)">or type&nbsp; <input type="number" id="timerMinN" min="0" max="59" class="numbox">&nbsp;:&nbsp;<input type="number" id="timerSecN" min="0" max="59" class="numbox"></div>
     <div class="btn-row">
       <button class="btn btn-secondary" id="tmSetBtn" onclick="tmSet()">Set</button>
       <button class="btn" id="tmToggle" onclick="tmToggle()">Start</button>
@@ -564,9 +566,9 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
   <div class="card" id="tabCfg">
     <h3>Tabata Settings</h3>
     <div style="display:flex;gap:24px;justify-content:center;align-items:flex-start;flex-wrap:wrap">
-      <div style="text-align:center"><div style="font-size:11px;color:var(--work);margin-bottom:2px">Work</div><div style="display:flex;gap:2px;align-items:center"><div class="wc-wrap"><div class="wc" id="tabWorkMinW" style="width:44px;height:100px"></div></div><span style="font-size:11px;color:var(--text2)">:</span><div class="wc-wrap"><div class="wc" id="tabWorkSecW" style="width:44px;height:100px"></div></div></div><div style="font-size:10px;color:var(--text2)">min : sec</div></div>
-      <div style="text-align:center"><div style="font-size:11px;color:var(--rest);margin-bottom:2px">Rest</div><div style="display:flex;gap:2px;align-items:center"><div class="wc-wrap"><div class="wc" id="tabRestMinW" style="width:44px;height:100px"></div></div><span style="font-size:11px;color:var(--text2)">:</span><div class="wc-wrap"><div class="wc" id="tabRestSecW" style="width:44px;height:100px"></div></div></div><div style="font-size:10px;color:var(--text2)">min : sec</div></div>
-      <div style="text-align:center"><div style="font-size:11px;color:var(--accent);margin-bottom:2px">Rounds</div><div class="wc-wrap"><div class="wc" id="tabIntW" style="width:44px;height:100px"></div></div><div style="font-size:10px;color:var(--text2)">&nbsp;</div></div>
+      <div style="text-align:center"><div style="font-size:11px;color:var(--work);margin-bottom:2px">Work</div><div style="display:flex;gap:2px;align-items:center"><div class="wc-wrap"><div class="wc" id="tabWorkMinW" style="width:44px;height:100px"></div></div><span style="font-size:11px;color:var(--text2)">:</span><div class="wc-wrap"><div class="wc" id="tabWorkSecW" style="width:44px;height:100px"></div></div></div><div style="font-size:10px;color:var(--text2)">min : sec</div><div style="margin-top:4px"><input type="number" id="tabWorkMinN" min="0" max="10" class="numbox" style="width:34px">:<input type="number" id="tabWorkSecN" min="0" max="59" class="numbox" style="width:34px"></div></div>
+      <div style="text-align:center"><div style="font-size:11px;color:var(--rest);margin-bottom:2px">Rest</div><div style="display:flex;gap:2px;align-items:center"><div class="wc-wrap"><div class="wc" id="tabRestMinW" style="width:44px;height:100px"></div></div><span style="font-size:11px;color:var(--text2)">:</span><div class="wc-wrap"><div class="wc" id="tabRestSecW" style="width:44px;height:100px"></div></div></div><div style="font-size:10px;color:var(--text2)">min : sec</div><div style="margin-top:4px"><input type="number" id="tabRestMinN" min="0" max="10" class="numbox" style="width:34px">:<input type="number" id="tabRestSecN" min="0" max="59" class="numbox" style="width:34px"></div></div>
+      <div style="text-align:center"><div style="font-size:11px;color:var(--accent);margin-bottom:2px">Rounds</div><div class="wc-wrap"><div class="wc" id="tabIntW" style="width:44px;height:100px"></div></div><div style="font-size:10px;color:var(--text2)">&nbsp;</div><div style="margin-top:4px"><input type="number" id="tabIntN" min="1" max="20" class="numbox" style="width:44px"></div></div>
     </div>
     <div style="display:flex;gap:8px;margin-top:12px;justify-content:center;flex-wrap:wrap">
       <span style="font-size:12px;color:var(--text2)">Work:</span><select id="tabWC" style="width:auto;padding:4px 8px;font-size:12px;border-radius:6px;border:1px solid #333;background:var(--btn);color:var(--text)"></select>
@@ -601,7 +603,7 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
   </div>
   <div class="card">
     <h3>Pomodoro Settings</h3>
-    <div class="slider-row"><label>Intervals</label><input type="range" id="pomIntSlider" min="1" max="8" value="4"><span class="val" id="pomIntVal">4</span></div>
+    <div class="slider-row"><label>Intervals</label><input type="range" id="pomIntSlider" min="1" max="8" value="4"><input type="number" id="pomIntN" min="1" max="8" class="numbox" style="width:44px" oninput="var v=Math.min(8,Math.max(1,+this.value||1));document.getElementById('pomIntSlider').value=v;document.getElementById('pomIntVal').textContent=v;"><span class="val" id="pomIntVal">4</span></div>
     <div class="btn-row" style="margin-top:10px"><button class="btn btn-primary" onclick="savePomInt()">Save</button></div>
   </div>
 </div>
@@ -807,14 +809,20 @@ function hslStr(h,s,l){return 'hsl('+h+','+s+'%,'+l+'%)';}
 var crazyHues=[0,0,0,0],lastCrazyT=0,pulseHue=0,pulsePhaseStart=0,pulseTransitioning=false;
 function animSegColors(){var now=Date.now();if(st.clrMode===2){if(now-lastCrazyT>200){lastCrazyT=now;for(var i=0;i<4;i++)crazyHues[i]=Math.floor(Math.random()*360);}for(var i=0;i<4;i++)document.getElementById('sd'+i).style.setProperty('--clr',hslStr(crazyHues[i],100,50));}else if(st.clrMode===3){if(!pulsePhaseStart)pulsePhaseStart=now;var h;if(!pulseTransitioning){h=pulseHue;if(now-pulsePhaseStart>=23000){pulseTransitioning=true;pulsePhaseStart=now;}}else{var el=now-pulsePhaseStart;if(el>=3000){pulseHue=(pulseHue+25)%360;h=pulseHue;pulseTransitioning=false;pulsePhaseStart=now;}else{var t=el/3000;var e=t*t*(3-2*t);h=(pulseHue+Math.floor(25*e))%360;}}for(var i=0;i<4;i++)document.getElementById('sd'+i).style.setProperty('--clr',hslStr(h,100,50));}}
 function makeWheel(id,max){const el=document.getElementById(id);el.innerHTML='';for(let i=0;i<=max;i++){const d=document.createElement('div');d.textContent=String(i);el.appendChild(d);}}
-function setWheel(id,val){const el=document.getElementById(id);setTimeout(()=>{el.scrollTop=val*40;},50);}
+function setWheel(id,val){const el=document.getElementById(id);setTimeout(()=>{el.scrollTop=val*40;},50);var n=document.getElementById(id.replace(/W$/,'N'));if(n&&document.activeElement!==n)n.value=val;}
 function getWheel(id){return Math.max(0,Math.round(document.getElementById(id).scrollTop/40));}
+// PC-friendly: a number input (id ...N) typed value drives the paired wheel (id ...W) immediately.
+function bindNum(wheelId,max){var n=document.getElementById(wheelId.replace(/W$/,'N'));if(!n)return;n.addEventListener('input',function(){var v=parseInt(n.value);if(isNaN(v))return;v=Math.min(max,Math.max(0,v));document.getElementById(wheelId).scrollTop=v*40;});}
 function init(){
   initSegs();
   makeWheel('timerMinW',59);makeWheel('timerSecW',59);
   makeWheel('tabWorkMinW',10);makeWheel('tabWorkSecW',59);
   makeWheel('tabRestMinW',10);makeWheel('tabRestSecW',59);
   makeWheel('tabIntW',20);
+  bindNum('timerMinW',59);bindNum('timerSecW',59);
+  bindNum('tabWorkMinW',10);bindNum('tabWorkSecW',59);
+  bindNum('tabRestMinW',10);bindNum('tabRestSecW',59);
+  bindNum('tabIntW',20);
   setWheel('timerMinW',1);setWheel('timerSecW',0);
   document.querySelectorAll('.tab').forEach(t=>{
     t.onclick=()=>{
@@ -850,7 +858,7 @@ function init(){
   ['nsStart','nsEnd'].forEach(id=>{const s=document.getElementById(id);for(let i=0;i<24;i++){const o=document.createElement('option');o.value=i;o.textContent=P(i)+':00';s.appendChild(o);}});
   document.getElementById('nsStart').value=22;document.getElementById('nsEnd').value=7;
   document.getElementById('nsBright').oninput=function(){document.getElementById('nsBrightVal').textContent=this.value;};
-  document.getElementById('pomIntSlider').oninput=function(){document.getElementById('pomIntVal').textContent=this.value;};
+  document.getElementById('pomIntSlider').oninput=function(){document.getElementById('pomIntVal').textContent=this.value;var pn=document.getElementById('pomIntN');if(pn)pn.value=this.value;};
   document.getElementById('dateIntSlider').oninput=function(){document.getElementById('dateIntVal').textContent=this.value;};
   initCities();
   connectWS();
@@ -966,7 +974,7 @@ function updateUI(){var _sy=window.pageYOffset;
     if(prev.pBt!==pBt){prev.pBt=pBt;var b=document.getElementById('pomToggle');b.textContent=pBt;b.className=st.pomRun?'btn btn-danger':'btn btn-primary';}
     if(st.pomRun!==prev.pomRun||st.pomDone!==prev.pomDone){prev.pomRun=st.pomRun;prev.pomDone=st.pomDone;document.getElementById('pomReset2').style.display=(!st.pomRun&&(st.pomMs>0||st.pomDone))?'':'none';}
   }
-  if(st.pomTotal!==undefined&&st.full){document.getElementById('pomIntSlider').value=st.pomTotal;document.getElementById('pomIntVal').textContent=st.pomTotal;}
+  if(st.pomTotal!==undefined&&st.full){document.getElementById('pomIntSlider').value=st.pomTotal;document.getElementById('pomIntVal').textContent=st.pomTotal;var pn=document.getElementById('pomIntN');if(pn&&document.activeElement!==pn)pn.value=st.pomTotal;}
   if(st.dateEn!==undefined&&st.full){document.getElementById('dateToggle').checked=st.dateEn;document.getElementById('dateIntSlider').value=st.dateInt||30;document.getElementById('dateIntVal').textContent=st.dateInt||30;document.getElementById('tempToggle').checked=st.tempEn;var tr=document.querySelector('input[name=tempType][value="'+(st.tempFL?'1':'0')+'"]');if(tr)tr.checked=true;document.getElementById('tempClrToggle').checked=st.tempClr;}
   if(st.curTemp!==undefined){var el=document.getElementById('tempReadout');var txt='';if(st.curTemp!==null){txt=st.curTemp.toFixed(1)+'°C actual | '+st.curFL.toFixed(1)+'°C feels like';if(st.wLoc)txt+='\nLocation: '+st.wLoc;el.innerHTML=txt.replace('\n','<br>');}else{el.textContent='';}}
   if(st.full){var sel=document.getElementById('locSelect');if(st.wLat){var key=st.wLat.toFixed(2)+','+st.wLon.toFixed(2);sel.value=key;if(!sel.value||sel.value==='auto'){sel.value='other';document.getElementById('locManual').style.display='flex';document.getElementById('locLat').value=st.wLat;document.getElementById('locLon').value=st.wLon;}document.getElementById('locStatus').textContent='Location set'+(st.wLoc?' ('+st.wLoc+')':'');}else{sel.value='auto';}}
@@ -1181,7 +1189,7 @@ void WebUI::handleWebSocketMessage(AsyncWebSocketClient* client, uint8_t* data, 
     else if (cmd == "clockfmt") { m_settings->clockShowMMSS = extractBool(msg, "mmss"); m_pendingSave = millis(); }
     else if (cmd == "sw") { String a = extractString(msg, "action"); if (a == "start") { stopwatchStart(); if (extractBool(msg, "broadcast") && m_heartbeat) m_heartbeat->startBroadcast(MODE_STOPWATCH, true, 0, true, 1, 1, false); } else if (a == "restart") { stopwatchRestart(); if (extractBool(msg, "broadcast") && m_heartbeat) m_heartbeat->startBroadcast(MODE_STOPWATCH, true, 0, true, 1, 1, false); } else if (a == "stop") { stopwatchStop(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } else if (a == "reset") { stopwatchReset(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } }
     else if (cmd == "timer") { String a = extractString(msg, "action"); if (a == "start") { int d = extractInt(msg, "duration"); if (d > 0) timerSet(d); timerStart(); if (extractBool(msg, "broadcast") && m_heartbeat) m_heartbeat->startBroadcast(MODE_TIMER, true, getTimerRemaining(), true, 1, 1, false); } else if (a == "set") { int d = extractInt(msg, "duration"); if (d > 0) timerSet(d); } else if (a == "stop") { timerStop(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } else if (a == "reset") { timerReset(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } }
-    else if (cmd == "tabata") { String a = extractString(msg, "action"); if (a == "start") { tabataStart(); if (extractBool(msg, "broadcast") && m_heartbeat) m_heartbeat->startBroadcast(MODE_TABATA, true, getTabataPhaseRemaining(), true, 1, m_settings->tabata.intervals, false); } else if (a == "stop") { tabataStop(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } else if (a == "reset") { tabataReset(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } }
+    else if (cmd == "tabata") { String a = extractString(msg, "action"); if (a == "start") { tabataStart(); if (extractBool(msg, "broadcast") && m_heartbeat) m_heartbeat->startBroadcast(MODE_TABATA, true, getTabataPhaseRemaining(), true, 1, m_settings->tabata.intervals, false, m_settings->tabata.workColorIdx, m_settings->tabata.restColorIdx); } else if (a == "stop") { tabataStop(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } else if (a == "reset") { tabataReset(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } }
     else if (cmd == "tabata_cfg") { int w = extractInt(msg, "work"), r = extractInt(msg, "rest"), n = extractInt(msg, "intervals"), wc = extractInt(msg, "workColor"), rc = extractInt(msg, "restColor"); if (w > 0) m_settings->tabata.workSec = w; if (r > 0) m_settings->tabata.restSec = r; if (n > 0) m_settings->tabata.intervals = n; if (wc >= 0) m_settings->tabata.workColorIdx = wc; if (rc >= 0) m_settings->tabata.restColorIdx = rc; m_pendingSave = millis(); tabataReset(); }
     else if (cmd == "timezone") { long v = (long)extractInt(msg, "value"); m_timeMgr->setTimezoneOffset(v); m_settings->timezoneOffset = v; m_pendingSave = millis(); }
     else if (cmd == "dst") { int v = extractInt(msg, "value"); m_timeMgr->setDSTMode(v); m_settings->dstMode = v; m_pendingSave = millis(); }

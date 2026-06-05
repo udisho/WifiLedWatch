@@ -454,35 +454,45 @@ void loop() {
     // === Broadcast session receiver: override display with received state ===
     if (heartbeat.hasActiveSession() && !heartbeat.isBroadcasting()) {
         const BroadcastSession& bs = heartbeat.getReceivedSession();
-        if (now - lastDisplayUpdate >= 100) {
+        // Derive the value from the shared epoch anchor when running, so this follower ticks
+        // in lockstep with the host (no broadcast lag). Falls back to the last snapshot when
+        // paused or before NTP sync.
+        long effMs = bs.remainingMs;
+        if (bs.running && bs.anchorMs != 0 && timeManager.isTimeSynced()) {
+            uint64_t nowMs = timeManager.getEpochMillis();
+            if (bs.mode == MODE_STOPWATCH)
+                effMs = (nowMs > bs.anchorMs) ? (long)(nowMs - bs.anchorMs) : 0;   // elapsed
+            else
+                effMs = (bs.anchorMs > nowMs) ? (long)(bs.anchorMs - nowMs) : 0;   // remaining
+        }
+        // "Has content" = something to mirror. An empty session (host returned to clock:
+        // not running, nothing left, not done) falls through to the clock so we don't freeze.
+        bool hasContent = bs.done || bs.running || effMs > 0;
+        if (hasContent && now - lastDisplayUpdate >= 100) {
             lastDisplayUpdate = now;
             if (bs.done) {
                 static bool bsFlash = false; bsFlash = !bsFlash;
+                ledDisplay.clearOverrideColor();
                 if (bsFlash) showAndMirror(0); else showBlank();
-            } else if (bs.running || bs.remainingMs > 0) {
-                // Derive the value from the shared epoch anchor when available, so this follower
-                // ticks in lockstep with the host (no broadcast lag). Falls back to the last
-                // snapshot when paused or before NTP sync.
-                long effMs = bs.remainingMs;
-                if (bs.running && bs.anchorMs != 0 && timeManager.isTimeSynced()) {
-                    uint64_t nowMs = timeManager.getEpochMillis();
-                    if (bs.mode == MODE_STOPWATCH)
-                        effMs = (nowMs > bs.anchorMs) ? (long)(nowMs - bs.anchorMs) : 0;   // elapsed
-                    else
-                        effMs = (bs.anchorMs > nowMs) ? (long)(bs.anchorMs - nowMs) : 0;   // remaining
-                }
+            } else {
                 // Match the host's rounding: stopwatch floors, countdowns ceil.
                 long s = (bs.mode == MODE_STOPWATCH) ? (effMs / 1000) : ((effMs + 999) / 1000);
                 int display = (s / 60 > 99) ? 9999 : ((int)(s / 60) * 100 + (int)(s % 60));
-                // Color for tabata work/rest phases
-                if (bs.mode == MODE_TABATA) {
-                    if (bs.workPhase) ledDisplay.setOverrideColor(CRGB::Green);
-                    else ledDisplay.setOverrideColor(CRGB::Blue);
+                if (bs.mode == MODE_TABATA)
+                    ledDisplay.setOverrideColor(COLOR_TABLE[(bs.workPhase ? bs.workColorIdx : bs.restColorIdx) % COLOR_COUNT].color);
+                else if (bs.mode == MODE_POMODORO)
+                    ledDisplay.setOverrideColor(bs.workPhase ? CRGB::Green : CRGB::Blue);
+                // Match the host: countdowns flash the digits in the last 5 seconds.
+                if (bs.mode != MODE_STOPWATCH && s <= 5 && settings.animateTransitions) {
+                    ledDisplay.showNumberFadeAnimated(display, true);
+                    webUI.setDisplayValue(display); webUI.setDisplayBlank(false);
+                } else {
+                    showAndMirror(display);
                 }
-                showAndMirror(display);
             }
         }
-        goto skipNormalDisplay;  // skip normal mode rendering
+        if (hasContent) goto skipNormalDisplay;  // session owns the display
+        // else: session ended/empty — fall through to the normal clock render
     }
 
     switch (mode) {
@@ -634,7 +644,11 @@ void loop() {
     skipNormalDisplay:
 
     // === Host-side broadcast: feed timer state to heartbeat ===
-    if (heartbeat.isBroadcasting()) {
+    if (heartbeat.isBroadcasting() && mode == MODE_CLOCK) {
+        // User left the timer/tabata/pomodoro back to the clock — the session is over.
+        // Tell followers to stop so they return to the clock instead of freezing.
+        heartbeat.stopBroadcast();
+    } else if (heartbeat.isBroadcasting()) {
         bool running = false;
         long remaining = 0;
         bool workPhase = true;
