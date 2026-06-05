@@ -505,6 +505,14 @@ int LedDisplay::charToPattern(char c) {
     }
 }
 
+void LedDisplay::showWord(const char* word) {
+    fill_solid(m_leds, TOTAL_LEDS, CRGB::Black);
+    for (int d = 0; d < NUM_DIGITS && word[d]; d++) {
+        showOneDigit(d, charToPattern(word[d]));
+    }
+    safeShow();
+}
+
 void LedDisplay::scrollText(const char* text, int delayMs) {
     int len = strlen(text);
     int padded = len + NUM_DIGITS + NUM_DIGITS;
@@ -541,38 +549,27 @@ void LedDisplay::showCrazy() {
     }
 }
 
-void LedDisplay::showPulse() {
+void LedDisplay::showPulse(uint64_t tMs) {
     // Pulse mode: hold a color, then rapidly sweep through the gradient to the next.
-    static uint8_t currentHue = 0;
-    static uint8_t displayHue = 0;
-    static unsigned long phaseStart = 0;
-    static bool transitioning = false;
+    // Pure function of tMs (the shared NTP-synced time base) so every clock matches.
+    const uint32_t holdMs  = 23000;            // hold 23 seconds
+    const uint32_t sweepMs = 3000;             // 3s smooth sweep
+    const uint32_t periodMs = holdMs + sweepMs;
+    const uint8_t  hueStep = 18;               // smaller steps = more colors visited
 
-    unsigned long now = millis();
-    if (phaseStart == 0) phaseStart = now;
+    uint32_t inPeriod  = (uint32_t)(tMs % periodMs);
+    uint8_t  baseHue   = (uint8_t)((tMs / periodMs) * hueStep);  // advances each period
+    uint8_t  displayHue;
 
-    if (!transitioning) {
-        displayHue = currentHue;
-        if (now - phaseStart >= 23000) {  // hold 23 seconds
-            transitioning = true;
-            phaseStart = now;
-        }
+    if (inPeriod < holdMs) {
+        displayHue = baseHue;
     } else {
-        unsigned long elapsed = now - phaseStart;
-        const unsigned long sweepMs = 3000;  // 3s smooth sweep
-        const uint8_t hueStep = 18;          // smaller steps = more colors visited
-        if (elapsed >= sweepMs) {
-            currentHue += hueStep;
-            displayHue = currentHue;
-            transitioning = false;
-            phaseStart = now;
-        } else {
-            // Ease-in-out: smoothstep 3t²-2t³
-            uint32_t t256 = (elapsed * 256) / sweepMs;  // 0-255
-            uint32_t eased = (t256 * t256 * (768 - 2 * t256)) >> 16;  // smoothstep scaled
-            if (eased > 255) eased = 255;
-            displayHue = currentHue + (uint8_t)(((uint32_t)hueStep * eased) >> 8);
-        }
+        uint32_t elapsed = inPeriod - holdMs;
+        // Ease-in-out: smoothstep 3t²-2t³
+        uint32_t t256 = (elapsed * 256) / sweepMs;  // 0-255
+        uint32_t eased = (t256 * t256 * (768 - 2 * t256)) >> 16;  // smoothstep scaled
+        if (eased > 255) eased = 255;
+        displayHue = baseHue + (uint8_t)(((uint32_t)hueStep * eased) >> 8);
     }
 
     for (int i = 0; i < TOTAL_LEDS; i++) {

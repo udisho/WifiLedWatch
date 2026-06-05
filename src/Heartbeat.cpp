@@ -12,8 +12,6 @@ void Heartbeat::begin() {
     Serial.printf("[heartbeat] started, MAC: %s, name: %s\n",
                   getMyMacStr().c_str(), m_deviceName.c_str());
 
-    // First election immediately
-    m_isMaster = true;  // assume master until proven otherwise
     registerMdns();
 }
 
@@ -27,11 +25,16 @@ void Heartbeat::update() {
         m_lastHeartbeat = now;
         sendHeartbeat();
         evictStalePeers();
-        runElection();
     }
 
     // Receive incoming messages
     receiveMessages();
+
+    // Stuck-follower timeout: clear received session if host went silent
+    if (m_receivedSession.active && !m_broadcasting) {
+        if (millis() - m_receivedSession.lastReceivedMs > 3000)
+            m_receivedSession.active = false;
+    }
 
     // Send broadcast session state (host, every 200ms)
     if (m_broadcasting && now - m_lastBroadcastSend >= 200) {
@@ -60,7 +63,6 @@ void Heartbeat::sendHeartbeat() {
     doc["ip"] = WiFi.localIP().toString();
     doc["name"] = m_deviceName;
     doc["up"] = millis() / 1000;
-    doc["master"] = m_isMaster;
 
     char buf[200];
     serializeJson(doc, buf, sizeof(buf));
@@ -96,12 +98,12 @@ void Heartbeat::receiveMessages() {
                    &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]);
 
             // Skip self
-            if (compareMac(mac, m_myMac) == 0) continue;
+            if (memcmp(mac, m_myMac, 6) == 0) continue;
 
             // Update or add peer
             bool found = false;
             for (int i = 0; i < m_peerCount; i++) {
-                if (compareMac(m_peers[i].mac, mac) == 0) {
+                if (memcmp(m_peers[i].mac, mac, 6) == 0) {
                     m_peers[i].ip = ip;
                     m_peers[i].name = name ? name : "";
                     m_peers[i].lastSeen = millis();
@@ -116,8 +118,6 @@ void Heartbeat::receiveMessages() {
                 m_peers[m_peerCount].lastSeen = millis();
                 m_peerCount++;
                 Serial.printf("[heartbeat] new peer: %s (%s)\n", ip, name ? name : "?");
-                // Re-run election when new peer appears
-                runElection();
             }
         }
         else if (strcmp(type, "bs") == 0) {
@@ -131,6 +131,7 @@ void Heartbeat::receiveMessages() {
                 m_receivedSession.interval = doc["int"] | 1;
                 m_receivedSession.totalIntervals = doc["total"] | 1;
                 m_receivedSession.done = doc["done"] | false;
+                m_receivedSession.lastReceivedMs = millis();
             }
         }
         else if (strcmp(type, "bs_stop") == 0) {
@@ -155,54 +156,36 @@ void Heartbeat::evictStalePeers() {
     }
 }
 
-void Heartbeat::runElection() {
-    // Non-blocking stagger: if waiting, check if delay elapsed
-    if (m_electionPending) {
-        if (millis() - m_electionStaggerStart < m_electionStaggerMs) return;
-        m_electionPending = false;
-        // Re-check after stagger — did someone else claim master?
-        receiveMessages();
-        bool stillBest = true;
-        for (int i = 0; i < m_peerCount; i++) {
-            if (compareMac(m_peers[i].mac, m_myMac) < 0) {
-                stillBest = false;
-                break;
-            }
-        }
-        if (stillBest && !m_isMaster) {
-            m_isMaster = true;
-            Serial.println("[heartbeat] role: MASTER");
-            registerMdns();
-        }
-        return;
+String Heartbeat::sanitizeName(const String& in) {
+    // DNS labels may only contain [a-z0-9-]; replace anything else with '-' and trim.
+    String name = in;
+    name.toLowerCase();
+    String clean;
+    for (size_t i = 0; i < name.length(); i++) {
+        char c = name[i];
+        clean += ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-') ? c : '-';
     }
+    while (clean.startsWith("-")) clean.remove(0, 1);
+    while (clean.endsWith("-"))   clean.remove(clean.length() - 1);
+    return clean;
+}
 
-    // Lowest MAC wins master role
-    bool shouldBeMaster = true;
+String Heartbeat::getMdnsHost() const {
+    // Build a unique, DNS-valid per-device hostname from the device name.
+    String clean = sanitizeName(m_deviceName);
+    if (clean.length() == 0) clean = "watch";  // fallback if name was all-invalid
+    return clean.startsWith("neotick-") ? clean : ("neotick-" + clean);
+}
+
+bool Heartbeat::hasNameConflict() const {
+    // Compare DNS-host form so "Home1" and "home1" are treated as the same.
+    String mine = getMdnsHost();
     for (int i = 0; i < m_peerCount; i++) {
-        if (compareMac(m_peers[i].mac, m_myMac) < 0) {
-            shouldBeMaster = false;
-            break;
-        }
+        String theirs = sanitizeName(m_peers[i].name);
+        if (theirs.length() && !theirs.startsWith("neotick-")) theirs = "neotick-" + theirs;
+        if (theirs == mine) return true;
     }
-
-    if (shouldBeMaster && !m_isMaster) {
-        // Start non-blocking stagger to prevent split-brain
-        m_electionPending = true;
-        m_electionStaggerStart = millis();
-        m_electionStaggerMs = (m_myMac[5] % 10) * ELECTION_STAGGER_MS;
-        return;
-    }
-
-    if (shouldBeMaster != m_isMaster) {
-        m_isMaster = shouldBeMaster;
-        Serial.printf("[heartbeat] role: %s\n", m_isMaster ? "MASTER" : "follower");
-        if (m_isMaster) {
-            registerMdns();
-        } else {
-            unregisterMdns();
-        }
-    }
+    return false;
 }
 
 void Heartbeat::registerMdns() {
@@ -210,24 +193,15 @@ void Heartbeat::registerMdns() {
         MDNS.end();
         m_mdnsRegistered = false;
     }
-    if (MDNS.begin("neotick")) {
+
+    String host = getMdnsHost();
+
+    if (MDNS.begin(host.c_str())) {
         MDNS.addService("http", "tcp", 80);
         MDNS.addService(MDNS_SERVICE_NAME, "tcp", 80);
         m_mdnsRegistered = true;
-        Serial.println("[heartbeat] mDNS registered: neotick.local");
+        Serial.printf("[heartbeat] mDNS registered: %s.local\n", host.c_str());
     }
-}
-
-void Heartbeat::unregisterMdns() {
-    if (m_mdnsRegistered) {
-        MDNS.end();
-        m_mdnsRegistered = false;
-        Serial.println("[heartbeat] mDNS unregistered");
-    }
-}
-
-int Heartbeat::compareMac(const uint8_t* a, const uint8_t* b) const {
-    return memcmp(a, b, 6);
 }
 
 String Heartbeat::getMyMacStr() const {
@@ -251,11 +225,16 @@ void Heartbeat::loadDeviceName() {
 }
 
 void Heartbeat::setDeviceName(const String& name) {
-    m_deviceName = name;
+    // Store the DNS-safe form so the displayed name, mDNS host, and --list all match.
+    String clean = sanitizeName(name);
+    if (clean.length() == 0) return;  // ignore all-invalid input
+    m_deviceName = clean;
     Preferences prefs;
     prefs.begin(NVS_NAMESPACE, false);
-    prefs.putString("devName", name);
+    prefs.putString("devName", clean);
     prefs.end();
+    // Re-register mDNS with the new name
+    registerMdns();
 }
 
 // Host-side broadcast control

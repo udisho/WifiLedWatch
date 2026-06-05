@@ -1,4 +1,5 @@
 #include "WifiManager.h"
+#include "Heartbeat.h"   // for Heartbeat::sanitizeName (DNS-safe watch name)
 #include <Preferences.h>
 #include <Arduino.h>
 
@@ -69,6 +70,10 @@ input:focus{border-color:var(--accent);outline:none}
       <label data-lang="en">Password (leave empty for open networks):</label>
       <label data-lang="ru">&#x041F;&#x0430;&#x0440;&#x043E;&#x043B;&#x044C; (&#x043E;&#x0441;&#x0442;&#x0430;&#x0432;&#x044C;&#x0442;&#x0435; &#x043F;&#x0443;&#x0441;&#x0442;&#x044B;&#x043C; &#x0434;&#x043B;&#x044F; &#x043E;&#x0442;&#x043A;&#x0440;&#x044B;&#x0442;&#x044B;&#x0445; &#x0441;&#x0435;&#x0442;&#x0435;&#x0439;):</label>
       <input type="password" id="password" name="password" placeholder="">
+      <label data-lang="he" class="show" style="direction:rtl;text-align:right">&#x05E9;&#x05DD; &#x05DC;&#x05E9;&#x05E2;&#x05D5;&#x05DF; &#x05D6;&#x05D4;:</label>
+      <label data-lang="en">Name this watch:</label>
+      <label data-lang="ru">&#x0418;&#x043C;&#x044F; &#x044D;&#x0442;&#x0438;&#x0445; &#x0447;&#x0430;&#x0441;&#x043E;&#x0432;:</label>
+      <input type="text" id="name" name="name" maxlength="16" placeholder="gym1">
       <button type="submit" class="btn btn-primary"><span data-lang="he" class="show">&#x05D4;&#x05EA;&#x05D7;&#x05D1;&#x05E8;</span><span data-lang="en">Connect</span><span data-lang="ru">&#x041F;&#x043E;&#x0434;&#x043A;&#x043B;&#x044E;&#x0447;&#x0438;&#x0442;&#x044C;</span></button>
     </form>
   </div>
@@ -116,7 +121,7 @@ function setLang(l){
 </body></html>
 )=====";
 
-static const char AP_DONE_HTML[] PROGMEM = R"=====(
+static const char AP_DONE_HEAD[] PROGMEM = R"=====(
 <!DOCTYPE html><html>
 <head>
 <meta charset="UTF-8">
@@ -135,7 +140,10 @@ p{font-size:18px;color:#999;margin-top:12px;line-height:1.6}
 <body>
 <div class="check">&#10003;</div>
 <h1>Wi-Fi Configured!</h1>
-<p>The watch will now connect to your network.</p><p style="margin-top:20px;font-size:16px;color:#e0e0e0">To access the control panel, open:<br><strong style="font-size:20px;color:var(--accent)">http://neotick.local</strong><br><span style="font-size:13px;color:#666">The watch will also show the IP on its display</span></p>
+<p>The watch will now connect to your network.</p>
+)=====";
+
+static const char AP_DONE_FOOT[] PROGMEM = R"=====(
 <div class="foot">NeoTick v3.0</div>
 </body></html>
 )=====";
@@ -348,9 +356,37 @@ void WifiManager::startCaptivePortal() {
                 r->send(400, "text/plain", "SSID is required");
                 return;
             }
+
+            // Read the optional watch name and reduce it to a DNS-safe label so the stored
+            // name, mDNS host and success URL all match (spaces/punctuation -> dashes).
+            String rawName = r->hasParam("name", true) ? r->getParam("name", true)->value() : "";
+            String devName = Heartbeat::sanitizeName(rawName);
+            if (devName.length() > 0) {
+                Preferences prefs;
+                prefs.begin("watchcfg", false);
+                prefs.putString("devName", devName);
+                prefs.end();
+                Serial.printf("AP saved watch name: %s\n", devName.c_str());
+            }
+            String hostLower = devName;  // already sanitized + lowercase
+
             Serial.printf("AP received credentials for: %s (password: %s)\n",
                           m_apReceivedSSID.c_str(), m_apReceivedPassword.length() > 0 ? "yes" : "none");
-            r->send(200, "text/html", AP_DONE_HTML);
+
+            // Build the success page with the named mDNS URL
+            String page = FPSTR(AP_DONE_HEAD);
+            if (hostLower.length() > 0) {
+                String host = "neotick-" + hostLower + ".local";
+                page += "<p style=\"margin-top:20px;font-size:16px;color:#e0e0e0\">Switch to your home WiFi, then open:<br>";
+                page += "<a href=\"http://" + host + "\" style=\"font-size:20px;color:var(--accent);text-decoration:none;font-weight:700\">http://" + host + "</a><br>";
+                page += "<span style=\"font-size:13px;color:#666\">The watch will also show the IP on its display</span></p>";
+            } else {
+                page += "<p style=\"margin-top:20px;font-size:16px;color:#e0e0e0\">Switch to your home WiFi to reach the watch.<br>";
+                page += "<span style=\"font-size:13px;color:#666\">The watch will show the IP on its display</span></p>";
+            }
+            page += FPSTR(AP_DONE_FOOT);
+
+            r->send(200, "text/html", page);
             m_apCredsReceived = true;
         } else {
             r->send(400, "text/plain", "SSID is required");

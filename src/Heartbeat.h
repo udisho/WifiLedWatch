@@ -24,6 +24,7 @@ struct BroadcastSession {
     int interval = 1;       // current interval
     int totalIntervals = 1;
     bool done = false;
+    unsigned long lastReceivedMs = 0;
 };
 
 class Heartbeat {
@@ -35,13 +36,21 @@ public:
     int getPeerCount() const { return m_peerCount; }
     const PeerInfo& getPeer(int i) const { return m_peers[i]; }
 
-    // Election
-    bool isMaster() const { return m_isMaster; }
     String getMyMacStr() const;
 
     // Device name (optional, stored in NVS)
     const String& getDeviceName() const { return m_deviceName; }
     void setDeviceName(const String& name);
+
+    // The per-device mDNS hostname (e.g. "neotick-gym1"). Single source of truth,
+    // used for both the watch's own mDNS record and ArduinoOTA.
+    String getMdnsHost() const;
+
+    // true if another watch on the network reports the same name (mDNS collision risk).
+    bool hasNameConflict() const;
+
+    // Reduce a user-entered name to a DNS-safe label: lowercase, only [a-z0-9-].
+    static String sanitizeName(const String& in);
 
     // Broadcast session (host side)
     void startBroadcast(uint8_t mode, bool running, long remainingMs,
@@ -61,15 +70,8 @@ private:
     PeerInfo m_peers[MAX_PEERS];
     int m_peerCount = 0;
 
-    bool m_isMaster = false;
     bool m_mdnsRegistered = false;
     unsigned long m_lastHeartbeat = 0;
-    unsigned long m_lastElection = 0;
-
-    // Non-blocking election stagger
-    bool m_electionPending = false;
-    unsigned long m_electionStaggerStart = 0;
-    unsigned long m_electionStaggerMs = 0;
 
     String m_deviceName;
 
@@ -84,10 +86,7 @@ private:
     void sendHeartbeat();
     void receiveMessages();
     void evictStalePeers();
-    void runElection();
     void registerMdns();
-    void unregisterMdns();
-    int compareMac(const uint8_t* a, const uint8_t* b) const;
     void loadDeviceName();
 };
 

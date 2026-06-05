@@ -78,6 +78,15 @@ void updateColonLED(unsigned long now, bool wifiLost) {
         digitalWrite(COLON_LED_PIN, LOW);
         return;
     }
+    if (!wifiLost && timeManager.isTimeSynced()) {
+        // Normal 0.5Hz blink derived from the shared NTP clock so every watch shows the
+        // identical colon state (on during even COLON_BLINK_NORMAL_MS windows).
+        bool on = ((timeManager.getEpochMillis() / COLON_BLINK_NORMAL_MS) % 2) == 0;
+        digitalWrite(COLON_LED_PIN, on ? HIGH : LOW);
+        colonState = on;
+        return;
+    }
+    // Fast blink (WiFi lost) or before NTP sync: local timing.
     unsigned long blinkRate = wifiLost ? COLON_BLINK_FAST_MS : COLON_BLINK_NORMAL_MS;
     if (now - lastColonToggle >= blinkRate) {
         lastColonToggle = now;
@@ -228,11 +237,21 @@ void weatherTask(void* param) {
             logger.printf("[weather] fetch failed: %d\n", code);
         }
         http.end();
-        logger.printf("[weather] done, sleeping %ds. Heap: %u\n", WEATHER_FETCH_INTERVAL/1000, ESP.getFreeHeap());
-        // Sleep in small chunks so we can wake on weatherFetchNow
-        for (int i = 0; i < WEATHER_FETCH_INTERVAL / 2000; i++) {
+        logger.printf("[weather] done, heap: %u\n", ESP.getFreeHeap());
+        // Wait for the next fetch. When NTP-synced, align to a shared wall-clock boundary
+        // (epoch %% interval == 0) so every clock fetches the same data window and shows the
+        // SAME temperature. Wake early on weatherFetchNow (e.g. after a location sync).
+        unsigned long ivSec = WEATHER_FETCH_INTERVAL / 1000;  // 600s
+        unsigned long target = timeManager.isTimeSynced()
+            ? (((unsigned long)timeManager.getEpochTime() / ivSec) + 1) * ivSec
+            : 0;
+        unsigned long waited = 0;
+        for (;;) {
             if (weatherFetchNow) break;
+            if (target) { if ((unsigned long)timeManager.getEpochTime() >= target) break; }
+            else if (waited >= WEATHER_FETCH_INTERVAL) break;  // not synced yet: fixed interval
             vTaskDelay(pdMS_TO_TICKS(2000));
+            waited += 2000;
         }
         weatherFetchNow = false;
     }
@@ -287,14 +306,22 @@ void loop() {
         // Start heartbeat (UDP multicast peer discovery + mDNS election)
         heartbeat.begin();
 
-        // ArduinoOTA for PlatformIO uploads
-        ArduinoOTA.setHostname("neotick");
+        // ArduinoOTA for PlatformIO uploads — use the SAME per-device hostname as
+        // Heartbeat's mDNS, otherwise ArduinoOTA.begin() re-registers mDNS as the bare
+        // "neotick" and every watch collides on neotick.local (last to boot wins).
+        String otaHost = heartbeat.getMdnsHost();
+        ArduinoOTA.setHostname(otaHost.c_str());
         ArduinoOTA.begin();
+        // ArduinoOTA.begin() re-inits mDNS with otaHost; re-advertise our services
+        // (web UI + the _neotick._tcp marker used for network discovery / --list).
+        MDNS.addService("http", "tcp", 80);
+        MDNS.addService(MDNS_SERVICE_NAME, "tcp", 80);
 
         // Show IP on LEDs after services are up
         ledDisplay.showIP(wifiManager.getIP().c_str());
 
-        Serial.printf("Access GUI at: http://%s or http://neotick.local\n", wifiManager.getIP().c_str());
+        Serial.printf("Access GUI at: http://%s or http://%s.local\n",
+                      wifiManager.getIP().c_str(), otaHost.c_str());
     }
 
     // Scroll "CONN" while waiting for WiFi
@@ -377,7 +404,11 @@ void loop() {
             // Skip when override is active (tabata/pomodoro own the color)
             ledDisplay.renderNumber(val);
             if (settings.colorMode == 2) ledDisplay.showCrazy();
-            else if (settings.colorMode == 3) ledDisplay.showPulse();
+            else if (settings.colorMode == 3) {
+                // Shared time base → identical pulse phase on every clock (local fallback pre-sync)
+                uint64_t pulseT = timeManager.isTimeSynced() ? timeManager.getEpochMillis() : (uint64_t)millis();
+                ledDisplay.showPulse(pulseT);
+            }
             ledDisplay.forceShow();
         } else {
             ledDisplay.showNumber(val);
@@ -402,15 +433,22 @@ void loop() {
 
     // Apply color overrides BEFORE rendering
     if (settings.colorMode == 1) {
-        static unsigned long lastRainbowUpdate = 0;
-        static uint8_t rainbowHue = 0;
-        if (now - lastRainbowUpdate >= 800) {
-            lastRainbowUpdate = now;
-            rainbowHue += 1;
-        }
+        // Derive hue from the shared NTP-synced clock so every watch shows the same color.
+        // Falls back to local millis() until NTP is synced. 800ms/step → ~205s full cycle.
+        uint64_t tMs = timeManager.isTimeSynced() ? timeManager.getEpochMillis() : (uint64_t)now;
+        uint8_t rainbowHue = (uint8_t)((tMs / 800) % 256);
         ledDisplay.setOverrideColor(CHSV(rainbowHue, 255, 255));
     } else {
         ledDisplay.clearOverrideColor();
+    }
+
+    // === Config sync flash: briefly show "SYNC" on the digits (both sender & receivers) ===
+    if (webUI.syncFlashActive()) {
+        ledDisplay.clearOverrideColor();
+        ledDisplay.showWord("SYNC");
+        webUI.setDisplayBlank(false);
+        lastClockDisplay = -1;  // force redraw of the clock when the flash ends
+        goto skipNormalDisplay;
     }
 
     // === Broadcast session receiver: override display with received state ===
@@ -667,7 +705,17 @@ void loop() {
     bool infoEnabled = (settings.showDateEnabled || settings.showTempEnabled) && timeManager.isTimeSynced();
     if (mode == MODE_CLOCK && infoEnabled) {
         unsigned long infoIv = (unsigned long)settings.showDateIntervalSec * 1000UL;
-        if (!dateShowing && now - lastDateShow >= infoIv) {
+        // Start the info rotation on a shared wall-clock boundary (epoch % interval == 0) so
+        // every NTP-synced clock begins the date/temp sequence at the same instant. The 3s+3s
+        // phases below then run in lockstep. Falls back to elapsed-time when not yet synced.
+        static unsigned long lastInfoTriggerSec = 0;
+        uint8_t ivSec = settings.showDateIntervalSec ? settings.showDateIntervalSec : 30;
+        unsigned long epochSec = timeManager.getEpochTime();
+        bool triggerNow = timeManager.isTimeSynced()
+            ? (epochSec % ivSec == 0 && epochSec != lastInfoTriggerSec)
+            : (now - lastDateShow >= infoIv);
+        if (!dateShowing && triggerNow) {
+            lastInfoTriggerSec = epochSec;
             dateShowing = true;
             dateShowStart = now;
             // Start with temp if enabled, otherwise date

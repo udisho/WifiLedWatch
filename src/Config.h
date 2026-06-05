@@ -42,10 +42,14 @@
 #define HEARTBEAT_INTERVAL   2000    // ms
 #define PEER_TIMEOUT         6000    // ms — evict after this
 #define MAX_PEERS            8
-#define ELECTION_STAGGER_MS  200     // per MAC byte for split-brain prevention
 
 // === NVS Keys ===
 #define NVS_NAMESPACE       "watchcfg"
+
+// === Config Sync ===
+// Shared secret required on /applyconfig pushes. Not real security (it ships in the
+// firmware), just a guard so a stray device can't trivially overwrite a watch's settings.
+#define SYNC_TOKEN          "neotick-cfg-7a3f91"
 
 // === Display Modes ===
 enum DisplayMode {

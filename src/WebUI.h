@@ -20,6 +20,9 @@ public:
     DisplayMode getMode() const { return m_mode; }
     void setMode(DisplayMode mode) { m_mode = mode; }
 
+    // True for a few seconds after a config sync (send or receive) — main loop shows "SYNC".
+    bool syncFlashActive() const { return m_syncFlashUntil != 0 && (long)(millis() - m_syncFlashUntil) < 0; }
+
     // Set what the physical display is currently showing (called by main.cpp)
     void setDisplayValue(int value) { m_displayValue = value; }
     void setDisplayBlank(bool blank) { m_displayBlank = blank; }
@@ -143,6 +146,11 @@ private:
     // Deferred NVS save (avoid flooding on rapid changes)
     unsigned long m_pendingSave = 0;
 
+    // Multi-watch config sync (set by WS cmd, executed from update() in main loop)
+    bool m_syncRequested = false;
+    // While now < this, the main loop shows "SYNC" on the digits (set on send & receive)
+    unsigned long m_syncFlashUntil = 0;
+
     // Broadcast timing
     unsigned long m_lastBroadcast = 0;
     unsigned long m_lastFullBroadcast = 15000;  // stagger: offset from peer scan
@@ -152,7 +160,9 @@ private:
     void broadcastState();
     String buildFastJSON();
     String buildStateJSON();
-    String buildHubHTML();
+    String buildConfigJSON();                 // syncable settings only (for push to peers)
+    void applyConfigJSON(const String& body); // apply a received config push
+    void doConfigSync();                      // push this watch's config to all peers
     void tabataAdvance();
     void pomodoroAdvance();
 };

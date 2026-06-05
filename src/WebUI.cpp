@@ -8,6 +8,8 @@
 #include <WiFi.h>
 #include <Arduino.h>
 #include <Update.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
 
 static int extractInt(const String& json, const char* key);
 static String extractString(const String& json, const char* key);
@@ -714,6 +716,26 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
     </div>
   </div>
 
+  <div class="sec-hdr" onclick="togSec(this)"><h3>Watch Name</h3><span class="arr">&#9660;</span></div>
+  <div class="sec-body">
+    <div style="font-size:11px;color:var(--text2);margin-bottom:10px;line-height:1.5">Used to identify this watch on the network (neotick-&lt;name&gt;.local) and among peers.</div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <input type="text" id="devName" maxlength="16" placeholder="Watch name" oninput="updateDevAddr()" style="flex:1;padding:8px;border-radius:8px;border:1px solid #333;background:var(--btn);color:var(--text);font-size:14px">
+      <button class="btn btn-primary" style="padding:8px 16px;font-size:13px" onclick="saveDevName()">Save</button>
+    </div>
+    <div id="devAddr" style="font-size:12px;margin-top:8px;color:var(--text2)"></div>
+    <div style="font-size:10px;color:var(--text2);margin-top:6px">Letters, numbers and dashes only (spaces become dashes).</div>
+    <div id="nameWarn" style="display:none;margin-top:8px;font-size:12px;color:var(--danger);background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);border-radius:8px;padding:8px">&#9888; Another watch on the network has this same name. Give each watch a unique name so they don't clash.</div>
+  </div>
+
+  <div class="sec-hdr" onclick="togSec(this)"><h3>Multi-Watch Sync</h3><span class="arr">&#9660;</span></div>
+  <div class="sec-body">
+    <div style="font-size:11px;color:var(--text2);margin-bottom:10px;line-height:1.5">Copy this watch's settings &ndash; brightness, color, night shift, birthdays, timezone, weather and more &ndash; to every other NeoTick on the network. Each watch keeps its own name.</div>
+    <button class="btn btn-primary" id="syncCfgBtn" style="display:none;width:100%;padding:10px" onclick="syncAll()">Sync All Watches With This Config</button>
+    <div id="syncNoPeers" style="font-size:11px;color:var(--text2)">No other watches detected on the network.</div>
+    <div id="peerList" style="margin-top:10px"></div>
+  </div>
+
   <div class="sec-hdr" onclick="togSec(this)"><h3>Firmware Update</h3><span class="arr">&#9660;</span></div>
   <div class="sec-body" id="otaSec">
     <div style="background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);border-radius:10px;padding:12px;margin-bottom:12px">
@@ -836,7 +858,7 @@ function init(){
 function connectWS(){
   const h=location.hostname||'4.3.2.1';
   ws=new WebSocket('ws://'+h+'/ws');
-  ws.onmessage=e=>{try{st=JSON.parse(e.data);if(st.full&&saving){saving=false;document.getElementById('toast').classList.remove('show');}updateUI();}catch(x){}};
+  ws.onmessage=e=>{try{var d=JSON.parse(e.data);if(d.toast!==undefined){showToast(d.toast);return;}st=d;if(st.full&&saving){saving=false;document.getElementById('toast').classList.remove('show');}updateUI();}catch(x){}};
   ws.onclose=()=>setTimeout(connectWS,2000);
   ws.onerror=()=>ws.close();
 }
@@ -952,6 +974,9 @@ function updateUI(){var _sy=window.pageYOffset;
   if(st.colonEn!==undefined&&st.full)document.getElementById('colonToggle').checked=st.colonEn;
   if(st.buzzLv!==undefined&&st.full){var r=document.querySelector('input[name=buzz][value="'+st.buzzLv+'"]');if(r)r.checked=true;}
   if(st.cwBuzz!==undefined&&st.full)document.getElementById('cwToggle').checked=st.cwBuzz;
+  if(st.devName!==undefined&&st.full){var dn=document.getElementById('devName');if(dn&&document.activeElement!==dn)dn.value=st.devName;updateDevAddr();}
+  if(st.full){var nw=document.getElementById('nameWarn');if(nw)nw.style.display=st.nameConflict?'':'none';
+    var pl=document.getElementById('peerList');if(pl){if(st.peerList&&st.peerList.length){pl.innerHTML='<div style="font-size:11px;color:var(--text2);margin-bottom:4px">Watches on this network:</div>'+st.peerList.map(function(p){var nm=(p.n||p.ip);return '<div style="font-size:13px;padding:2px 0">&#128337; <a href="http://'+p.ip+'/" style="color:var(--accent);text-decoration:none">'+nm+'</a> <span style="color:var(--text2);font-size:11px">'+p.ip+'</span></div>';}).join('');}else{pl.innerHTML='';}}}
   if(st.rssi!==undefined){var r=st.rssi,q=r>-50?'Excellent':r>-65?'Good':r>-75?'Weak':'Poor',cl=r>-50?'var(--success)':r>-65?'var(--accent)':r>-75?'#FFA500':'var(--danger)';document.getElementById('rssiLine').innerHTML='Signal: <strong style="color:'+cl+'">'+r+' dBm ('+q+')</strong>';}
   if(st.bdIntv!==undefined&&st.full){var s=document.getElementById('bdayIntv');if(s)s.value=st.bdIntv;}
   if(st.bdScrl!==undefined&&st.full){var s=document.getElementById('bdayScrl');if(s)s.value=st.bdScrl;}
@@ -970,7 +995,7 @@ function updateUI(){var _sy=window.pageYOffset;
   if(st.ssid)document.getElementById('wifiSSID').textContent=st.ssid;
   if(st.ip)document.getElementById('wifiIP').textContent=st.ip;
   var hasPeers=st.peers&&st.peers>0;
-  if(hasPeers!==prev.hasPeers){prev.hasPeers=hasPeers;['swBcastBtn','tmBcastBtn','tabBcastBtn','pomBcastBtn'].forEach(function(id){document.getElementById(id).style.display=hasPeers?'':'none';});}
+  if(hasPeers!==prev.hasPeers){prev.hasPeers=hasPeers;['swBcastBtn','tmBcastBtn','tabBcastBtn','pomBcastBtn','syncCfgBtn'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display=hasPeers?'':'none';});var np=document.getElementById('syncNoPeers');if(np)np.style.display=hasPeers?'none':'';}
   if(st.bcasting&&!prev.bcasting){prev.bcasting=true;document.getElementById('timeDisp').insertAdjacentHTML('afterend','<div id="bcastBadge" style="text-align:center;font-size:11px;color:#6e7dff;font-weight:700;margin-top:4px">BROADCASTING TO ALL</div>');}
   if(!st.bcasting&&prev.bcasting){prev.bcasting=false;var bb=document.getElementById('bcastBadge');if(bb)bb.remove();}
   if(window.pageYOffset!==_sy)window.scrollTo(0,_sy);
@@ -1008,6 +1033,11 @@ function setLoc(){var s=document.getElementById('locSelect'),v=s.value;document.
 function saveManualLoc(){var la=parseFloat(document.getElementById('locLat').value),lo=parseFloat(document.getElementById('locLon').value);if(la&&lo){sendSave({cmd:'setloc',lat:la,lon:lo});document.getElementById('locStatus').textContent='Saved ('+la.toFixed(2)+', '+lo.toFixed(2)+')';}}
 function saveInfo(){sendSave({cmd:'datedisp',enabled:document.getElementById('dateToggle').checked,interval:+document.getElementById('dateIntSlider').value,tempEn:document.getElementById('tempToggle').checked,feelsLike:document.querySelector('input[name=tempType]:checked').value==='1',tempClr:document.getElementById('tempClrToggle').checked});}
 function addBday(){var n=document.getElementById('bdayName').value,d=+document.getElementById('bdayDay').value,m=+document.getElementById('bdayMon').value;if(n&&d&&m)sendSave({cmd:'bday_add',name:n,day:d,month:m});document.getElementById('bdayName').value='';}
+function mdnsHost(n){n=(n||'').toLowerCase().replace(/[^a-z0-9-]/g,'-').replace(/^-+|-+$/g,'');if(!n)n='watch';return n.indexOf('neotick-')===0?n:'neotick-'+n;}
+function updateDevAddr(){var v=document.getElementById('devName').value;var url='http://'+mdnsHost(v)+'.local';document.getElementById('devAddr').innerHTML='This watch: <a href="'+url+'" style="color:var(--accent);text-decoration:none">'+url+'</a>';}
+function saveDevName(){var v=document.getElementById('devName').value.trim();if(v)sendSave({cmd:'devname',value:v});}
+function syncAll(){if(confirm('Copy this watch\'s settings to all other watches on the network?'))send({cmd:'synccfg'});}
+function showToast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(window._tt);window._tt=setTimeout(function(){t.classList.remove('show');t.textContent='Saving...';},2500);}
 function delBday(i){sendSave({cmd:'bday_del',index:i});}
 function loadTabPreset(){sendSave({cmd:'tab_preset_load',index:+document.getElementById('tabPresetSel').value});}
 function saveTabPreset(){var n=document.getElementById('tabPresetName').value;if(!n)return;var ws=getWheel('tabWorkMinW')*60+getWheel('tabWorkSecW'),rs=getWheel('tabRestMinW')*60+getWheel('tabRestSecW');sendSave({cmd:'tab_preset_save',name:n,work:ws||20,rest:rs||10,intervals:getWheel('tabIntW')||8});}
@@ -1169,6 +1199,7 @@ void WebUI::handleWebSocketMessage(AsyncWebSocketClient* client, uint8_t* data, 
     else if (cmd == "buzzer") { int lv = extractInt(msg, "level"); if (lv >= 0 && lv <= 2) { m_settings->buzzerLevel = lv; m_pendingSave = millis(); } }
     else if (cmd == "buzztest") { m_buzzerTestRequested = true; }
     else if (cmd == "clockwork") { m_settings->clockworkBuzzer = extractBool(msg, "enabled"); m_pendingSave = millis(); }
+    else if (cmd == "devname") { String n = extractString(msg, "value"); if (n.length() && m_heartbeat) m_heartbeat->setDeviceName(n); }
 
     else if (cmd == "bday_interval") { int v = extractInt(msg, "value"); if (v >= 1 && v <= 240) { m_settings->birthdayIntervalMins = v; m_pendingSave = millis(); } }
     else if (cmd == "bday_buzzer") { m_settings->birthdayBuzzer = extractBool(msg, "enabled"); m_pendingSave = millis(); }
@@ -1179,6 +1210,7 @@ void WebUI::handleWebSocketMessage(AsyncWebSocketClient* client, uint8_t* data, 
     else if (cmd == "tab_preset_save") { String n = extractString(msg, "name"); int w = extractInt(msg, "work"), r = extractInt(msg, "rest"), iv = extractInt(msg, "intervals"); TabataPreset p; strncpy(p.name, n.c_str(), 15); p.name[15] = 0; p.workSec = w; p.restSec = r; p.intervals = iv; for (int i = 0; i < MAX_TABATA_PRESETS; i++) { TabataPreset ex; m_configStore->loadTabataPreset(i, ex); if (ex.name[0] == 0) { m_configStore->saveTabataPreset(i, p); break; } } if (m_ws) m_ws->textAll(buildStateJSON()); return; }
     else if (cmd == "tab_preset_del") { int i = extractInt(msg, "index"); if (i >= 0 && i < MAX_TABATA_PRESETS) { TabataPreset empty; m_configStore->saveTabataPreset(i, empty); } if (m_ws) m_ws->textAll(buildStateJSON()); return; }
     else if (cmd == "tab_preset_load") { int i = extractInt(msg, "index"); TabataPreset p; m_configStore->loadTabataPreset(i, p); if (p.name[0]) { m_settings->tabata.workSec = p.workSec; m_settings->tabata.restSec = p.restSec; m_settings->tabata.intervals = p.intervals; m_pendingSave = millis(); tabataReset(); } if (m_ws) m_ws->textAll(buildStateJSON()); return; }
+    else if (cmd == "synccfg") { m_syncRequested = true; return; }
     else if (cmd == "resetwifi") { Preferences p; p.begin(NVS_NAMESPACE, false); p.remove("ssid"); p.remove("pass"); p.end(); delay(500); ESP.restart(); }
     if (m_ws) m_ws->textAll(buildStateJSON());
 }
@@ -1271,6 +1303,17 @@ String WebUI::buildStateJSON() {
     j += ",\"colonEn\":"; j += m_settings->colonLedsEnabled ? "true" : "false";
     j += ",\"buzzLv\":"; j += m_settings->buzzerLevel;
     j += ",\"cwBuzz\":"; j += m_settings->clockworkBuzzer ? "true" : "false";
+    j += ",\"devName\":\""; j += (m_heartbeat ? m_heartbeat->getDeviceName() : String("")); j += "\"";
+    if (m_heartbeat) {
+        j += ",\"nameConflict\":"; j += m_heartbeat->hasNameConflict() ? "true" : "false";
+        j += ",\"peerList\":[";
+        for (int i = 0; i < m_heartbeat->getPeerCount(); i++) {
+            const PeerInfo& p = m_heartbeat->getPeer(i);
+            if (i > 0) j += ",";
+            j += "{\"n\":\""; j += p.name; j += "\",\"ip\":\""; j += p.ip; j += "\"}";
+        }
+        j += "]";
+    }
 
     j += ",\"rssi\":"; j += WiFi.RSSI();
     j += ",\"bdIntv\":"; j += m_settings->birthdayIntervalMins;
@@ -1297,49 +1340,194 @@ String WebUI::buildStateJSON() {
     return j;
 }
 
-// Regular broadcast: fast JSON only. Full state sent on connect + after commands.
-void WebUI::broadcastState() { if (!m_ws || m_ws->count() == 0) return; m_ws->textAll(buildFastJSON()); }
+// ======================== Multi-Watch Config Sync ========================
+// Syncable settings only (no live/identity fields). Pushed to peers on demand.
+String WebUI::buildConfigJSON() {
+    const WatchSettings& s = *m_settings;
+    String j = "{";
+    j += "\"colorIdx\":";  j += s.colorIndex;
+    j += ",\"customR\":";  j += s.customR;
+    j += ",\"customG\":";  j += s.customG;
+    j += ",\"customB\":";  j += s.customB;
+    j += ",\"clrMode\":";  j += s.colorMode;
+    j += ",\"bright\":";   j += s.brightness;
+    j += ",\"mmss\":";     j += s.clockShowMMSS ? "true" : "false";
+    j += ",\"animTr\":";   j += s.animateTransitions ? "true" : "false";
+    j += ",\"tz\":";       j += s.timezoneOffset;
+    j += ",\"dst\":";      j += s.dstMode;
+    j += ",\"dsFL\":";     j += s.dstStart.isLast ? "true" : "false";
+    j += ",\"dsDow\":";    j += s.dstStart.dayOfWeek;
+    j += ",\"dsMon\":";    j += s.dstStart.month;
+    j += ",\"dsH\":";      j += s.dstStart.hour;
+    j += ",\"deFL\":";     j += s.dstEnd.isLast ? "true" : "false";
+    j += ",\"deDow\":";    j += s.dstEnd.dayOfWeek;
+    j += ",\"deMon\":";    j += s.dstEnd.month;
+    j += ",\"deH\":";      j += s.dstEnd.hour;
+    j += ",\"tbWork\":";   j += s.tabata.workSec;
+    j += ",\"tbRest\":";   j += s.tabata.restSec;
+    j += ",\"tbInt\":";    j += s.tabata.intervals;
+    j += ",\"tbWC\":";     j += s.tabata.workColorIdx;
+    j += ",\"tbRC\":";     j += s.tabata.restColorIdx;
+    j += ",\"nsEn\":";     j += s.nightShiftEnabled ? "true" : "false";
+    j += ",\"nsStart\":";  j += s.nightShiftStartHour;
+    j += ",\"nsEnd\":";    j += s.nightShiftEndHour;
+    j += ",\"nsBright\":"; j += s.nightShiftBrightness;
+    j += ",\"pomTotal\":"; j += s.pomodoroIntervals;
+    j += ",\"dateEn\":";   j += s.showDateEnabled ? "true" : "false";
+    j += ",\"dateInt\":";  j += s.showDateIntervalSec;
+    j += ",\"tempEn\":";   j += s.showTempEnabled ? "true" : "false";
+    j += ",\"tempFL\":";   j += s.tempFeelsLike ? "true" : "false";
+    j += ",\"tempClr\":";  j += s.tempColorByValue ? "true" : "false";
+    j += ",\"wLat\":";     j += String(s.weatherLat, 4);
+    j += ",\"wLon\":";     j += String(s.weatherLon, 4);
+    j += ",\"wCity\":\""; j += m_weatherCity; j += "\"";  // label (manual coords don't auto-derive it)
+    j += ",\"colonEn\":";  j += s.colonLedsEnabled ? "true" : "false";
+    j += ",\"buzzLv\":";   j += s.buzzerLevel;
+    j += ",\"cwBuzz\":";   j += s.clockworkBuzzer ? "true" : "false";
+    j += ",\"bdIntv\":";   j += s.birthdayIntervalMins;
+    j += ",\"bdScrl\":";   j += s.birthdayScrollCount;
+    j += ",\"bdSpd\":";    j += s.birthdayScrollSpeed;
+    j += ",\"bdBuzz\":";   j += s.birthdayBuzzer ? "true" : "false";
+    j += ",\"bdays\":[";
+    for (int i = 0; i < s.birthdayCount && i < MAX_BIRTHDAYS; i++) {
+        Birthday b; m_configStore->loadBirthday(i, b);
+        if (i > 0) j += ",";
+        j += "{\"n\":\""; j += b.name; j += "\",\"d\":"; j += b.day; j += ",\"m\":"; j += b.month; j += "}";
+    }
+    j += "]}";
+    return j;
+}
 
-// ======================== Hub Picker ========================
-String WebUI::buildHubHTML() {
-    String h = F("<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>NeoTick Hub</title>"
-    "<style>:root{--bg:#0f0f23;--card:#1a1a2e;--accent:#44d9e1;--text:#e0e0e0;--text2:#999}"
-    "*{margin:0;padding:0;box-sizing:border-box}"
-    "body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:20px}"
-    ".hdr{text-align:center;padding:30px 0 20px}.hdr h1{font-size:28px;color:var(--accent);font-weight:800}.hdr p{color:var(--text2);font-size:14px;margin-top:4px}"
-    ".grid{max-width:500px;margin:0 auto;display:flex;flex-direction:column;gap:12px}"
-    ".dev{background:var(--card);border-radius:14px;padding:20px 22px;text-decoration:none;color:var(--text);display:flex;align-items:center;gap:16px;border:2px solid transparent;transition:.15s}"
-    ".dev:hover,.dev:active{border-color:var(--accent);transform:scale(1.02)}"
-    ".dot{width:12px;height:12px;border-radius:50%;background:var(--accent);flex-shrink:0}"
-    ".info{flex:1}.name{font-size:17px;font-weight:700}.ip{font-size:13px;color:var(--text2);margin-top:2px}"
-    ".arr{color:var(--accent);font-size:20px}"
-    "</style></head><body>"
-    "<div class='hdr'><h1>NeoTick</h1><p>Select a watch to control</p></div><div class='grid'>");
+// Apply a config payload received from another watch. Identity (device name) is never touched.
+void WebUI::applyConfigJSON(const String& body) {
+    JsonDocument doc;
+    if (deserializeJson(doc, body)) return;
+    WatchSettings& s = *m_settings;
 
-    // Add self
-    h += "<a class='dev' href='http://";
-    h += WiFi.localIP().toString();
-    h += "/'><span class='dot'></span><div class='info'><div class='name'>";
-    h += m_heartbeat->getDeviceName();
-    h += "</div><div class='ip'>";
-    h += WiFi.localIP().toString();
-    h += " (this watch)</div></div><span class='arr'>&#9654;</span></a>";
+    // Identity guard: a config push must NEVER change this watch's name / mDNS identity.
+    // It doesn't today (the name isn't part of WatchSettings or the payload), but snapshot
+    // it and restore below so this can never regress if a name field is added later.
+    String keepName = (m_heartbeat ? m_heartbeat->getDeviceName() : String(""));
 
-    // Add peers
-    for (int i = 0; i < m_heartbeat->getPeerCount(); i++) {
-        const PeerInfo& p = m_heartbeat->getPeer(i);
-        h += "<a class='dev' href='http://";
-        h += p.ip;
-        h += "/'><span class='dot'></span><div class='info'><div class='name'>";
-        h += p.name.length() > 0 ? p.name : "NeoTick";
-        h += "</div><div class='ip'>";
-        h += p.ip;
-        h += "</div></div><span class='arr'>&#9654;</span></a>";
+    s.colorIndex          = doc["colorIdx"]  | s.colorIndex;
+    s.customR             = doc["customR"]   | s.customR;
+    s.customG             = doc["customG"]   | s.customG;
+    s.customB             = doc["customB"]   | s.customB;
+    s.colorMode           = doc["clrMode"]   | s.colorMode;
+    s.brightness          = doc["bright"]    | s.brightness;
+    s.clockShowMMSS       = doc["mmss"]      | s.clockShowMMSS;
+    s.animateTransitions  = doc["animTr"]    | s.animateTransitions;
+    s.timezoneOffset      = doc["tz"]        | s.timezoneOffset;
+    s.dstMode             = doc["dst"]       | s.dstMode;
+    s.dstStart.isLast     = doc["dsFL"]      | s.dstStart.isLast;
+    s.dstStart.dayOfWeek  = doc["dsDow"]     | s.dstStart.dayOfWeek;
+    s.dstStart.month      = doc["dsMon"]     | s.dstStart.month;
+    s.dstStart.hour       = doc["dsH"]       | s.dstStart.hour;
+    s.dstEnd.isLast       = doc["deFL"]      | s.dstEnd.isLast;
+    s.dstEnd.dayOfWeek    = doc["deDow"]     | s.dstEnd.dayOfWeek;
+    s.dstEnd.month        = doc["deMon"]     | s.dstEnd.month;
+    s.dstEnd.hour         = doc["deH"]       | s.dstEnd.hour;
+    s.tabata.workSec      = doc["tbWork"]    | s.tabata.workSec;
+    s.tabata.restSec      = doc["tbRest"]    | s.tabata.restSec;
+    s.tabata.intervals    = doc["tbInt"]     | s.tabata.intervals;
+    s.tabata.workColorIdx = doc["tbWC"]      | s.tabata.workColorIdx;
+    s.tabata.restColorIdx = doc["tbRC"]      | s.tabata.restColorIdx;
+    s.nightShiftEnabled   = doc["nsEn"]      | s.nightShiftEnabled;
+    s.nightShiftStartHour = doc["nsStart"]   | s.nightShiftStartHour;
+    s.nightShiftEndHour   = doc["nsEnd"]     | s.nightShiftEndHour;
+    s.nightShiftBrightness= doc["nsBright"]  | s.nightShiftBrightness;
+    s.pomodoroIntervals   = doc["pomTotal"]  | s.pomodoroIntervals;
+    s.showDateEnabled     = doc["dateEn"]    | s.showDateEnabled;
+    s.showDateIntervalSec = doc["dateInt"]   | s.showDateIntervalSec;
+    s.showTempEnabled     = doc["tempEn"]    | s.showTempEnabled;
+    s.tempFeelsLike       = doc["tempFL"]    | s.tempFeelsLike;
+    s.tempColorByValue    = doc["tempClr"]   | s.tempColorByValue;
+    s.weatherLat          = doc["wLat"]      | s.weatherLat;
+    s.weatherLon          = doc["wLon"]      | s.weatherLon;
+    s.colonLedsEnabled    = doc["colonEn"]   | s.colonLedsEnabled;
+    s.buzzerLevel         = doc["buzzLv"]    | s.buzzerLevel;
+    s.clockworkBuzzer     = doc["cwBuzz"]    | s.clockworkBuzzer;
+    s.birthdayIntervalMins= doc["bdIntv"]    | s.birthdayIntervalMins;
+    s.birthdayScrollCount = doc["bdScrl"]    | s.birthdayScrollCount;
+    s.birthdayScrollSpeed = doc["bdSpd"]     | s.birthdayScrollSpeed;
+    s.birthdayBuzzer      = doc["bdBuzz"]    | s.birthdayBuzzer;
+
+    // Birthdays: replace the whole list
+    if (doc["bdays"].is<JsonArray>()) {
+        JsonArray arr = doc["bdays"].as<JsonArray>();
+        int cnt = 0;
+        for (JsonObject bo : arr) {
+            if (cnt >= MAX_BIRTHDAYS) break;
+            Birthday b;
+            const char* n = bo["n"] | "";
+            strncpy(b.name, n, sizeof(b.name) - 1); b.name[sizeof(b.name) - 1] = 0;
+            b.day   = bo["d"] | 0;
+            b.month = bo["m"] | 0;
+            m_configStore->saveBirthday(cnt, b);
+            cnt++;
+        }
+        s.birthdayCount = cnt;
     }
 
-    h += "</div></body></html>";
-    return h;
+    // Apply live to the running objects
+    m_display->setBrightness(s.brightness);
+    if (s.colorIndex >= 0) m_display->setColorByIndex(s.colorIndex);
+    else m_display->setColor(CRGB(s.customR, s.customG, s.customB));
+    m_timeMgr->setTimezoneOffset(s.timezoneOffset);
+    m_timeMgr->setDSTMode(s.dstMode);
+    m_timeMgr->setDSTRules(s.dstStart, s.dstEnd);
+
+    // Weather: copy the city label (manual coords don't auto-derive it) and force an
+    // immediate re-fetch so the synced location takes effect now, not in ~10 minutes.
+    {
+        const char* city = doc["wCity"] | "";
+        extern char weatherCity[32];
+        strncpy(weatherCity, city, sizeof(weatherCity) - 1);
+        weatherCity[sizeof(weatherCity) - 1] = 0;
+        m_weatherCity = city;
+        extern volatile bool weatherFetchNow;
+        weatherFetchNow = true;
+    }
+
+    // Restore identity if anything above touched it — config sync must not rename this watch.
+    if (m_heartbeat && m_heartbeat->getDeviceName() != keepName) {
+        m_heartbeat->setDeviceName(keepName);
+    }
+
+    m_configStore->save(s);  // single NVS write (includes bdCnt)
+    m_syncFlashUntil = millis() + 3000;  // show "SYNC" on the digits so it's visibly received
+    Serial.println("[sync] applied config from peer (name preserved)");
 }
+
+// Host side: push this watch's config to every known peer (blocking HTTP, runs from main loop).
+void WebUI::doConfigSync() {
+    if (!m_heartbeat) return;
+    m_syncFlashUntil = millis() + 3000;  // flash "SYNC" on this watch too
+    String body = buildConfigJSON();
+    int total = m_heartbeat->getPeerCount();
+    int ok = 0;
+    for (int i = 0; i < total; i++) {
+        const PeerInfo& p = m_heartbeat->getPeer(i);
+        if (p.ip.length() == 0) continue;
+        HTTPClient http;
+        http.setConnectTimeout(800);   // fail fast on an unreachable peer (keeps loop responsive)
+        http.setTimeout(1500);
+        http.begin("http://" + p.ip + "/applyconfig");
+        http.addHeader("Content-Type", "application/json");
+        http.addHeader("X-Sync-Token", SYNC_TOKEN);
+        int code = http.POST(body);
+        if (code == 200) ok++;
+        http.end();
+    }
+    Serial.printf("[sync] pushed config to %d/%d peers\n", ok, total);
+    if (m_ws && m_ws->count() > 0) {
+        String t = "{\"toast\":\"Synced "; t += ok; t += "/"; t += total; t += " watches\"}";
+        m_ws->textAll(t);
+    }
+}
+
+// Regular broadcast: fast JSON only. Full state sent on connect + after commands.
+void WebUI::broadcastState() { if (!m_ws || m_ws->count() == 0) return; m_ws->textAll(buildFastJSON()); }
 
 // ======================== Setup ========================
 void WebUI::begin(LedDisplay* display, TimeManager* timeMgr, ConfigStore* configStore, WatchSettings* settings, WifiManager* wifiMgr, Heartbeat* heartbeat) {
@@ -1359,30 +1547,17 @@ void WebUI::begin(LedDisplay* display, TimeManager* timeMgr, ConfigStore* config
     });
     m_server->addHandler(m_ws);
 
-    // Hub picker: if accessed via neotick.local and peers exist, show device picker
-    // Otherwise serve the normal watch UI
+    // Always serve the normal watch UI
     m_server->on("/", HTTP_GET, [this](AsyncWebServerRequest* r) {
-        bool viaLocal = false;
-        if (r->hasHeader("Host")) {
-            String host = r->header("Host");
-            viaLocal = host.startsWith("neotick.local");
-        }
-        if (viaLocal && m_heartbeat && m_heartbeat->getPeerCount() > 0) {
-            // Serve hub picker page
-            String html = buildHubHTML();
-            r->send(200, "text/html", html);
-        } else {
-            // Serve normal watch UI
-            size_t htmlLen = strlen_P(WEB_HTML);
-            AsyncWebServerResponse* resp = r->beginChunkedResponse("text/html",
-                [htmlLen](uint8_t* buffer, size_t maxLen, size_t index) -> size_t {
-                    if (index >= htmlLen) return 0;
-                    size_t len = std::min(maxLen, htmlLen - index);
-                    memcpy_P((char*)buffer, WEB_HTML + index, len);
-                    return len;
-                });
-            r->send(resp);
-        }
+        size_t htmlLen = strlen_P(WEB_HTML);
+        AsyncWebServerResponse* resp = r->beginChunkedResponse("text/html",
+            [htmlLen](uint8_t* buffer, size_t maxLen, size_t index) -> size_t {
+                if (index >= htmlLen) return 0;
+                size_t len = std::min(maxLen, htmlLen - index);
+                memcpy_P((char*)buffer, WEB_HTML + index, len);
+                return len;
+            });
+        r->send(resp);
     });
     extern const char* getLogBuffer();
     m_server->on("/icon.svg", HTTP_GET, [](AsyncWebServerRequest* r) {
@@ -1397,6 +1572,28 @@ void WebUI::begin(LedDisplay* display, TimeManager* timeMgr, ConfigStore* config
         r->send(200, "application/manifest+json", "{\"name\":\"NeoTick\",\"short_name\":\"NeoTick\",\"display\":\"standalone\",\"background_color\":\"#0f0f23\",\"theme_color\":\"#0f0f23\",\"start_url\":\"/\",\"icons\":[{\"src\":\"/touch-icon.png\",\"sizes\":\"192x192\",\"type\":\"image/png\"}]}");
     });
     m_server->on("/logs", HTTP_GET, [](AsyncWebServerRequest* r) { r->send(200, "text/plain", getLogBuffer()); });
+    // Receive a config push from another watch on the network
+    m_server->on("/applyconfig", HTTP_POST,
+        [this](AsyncWebServerRequest* r) {
+            String* body = (String*)r->_tempObject;
+            // Require the shared token so a stray device can't overwrite our settings.
+            bool authed = r->hasHeader("X-Sync-Token") &&
+                          r->getHeader("X-Sync-Token")->value() == SYNC_TOKEN;
+            if (!authed) {
+                if (body) { delete body; r->_tempObject = nullptr; }
+                r->send(403, "text/plain", "FORBIDDEN");
+                return;
+            }
+            if (body) { applyConfigJSON(*body); delete body; r->_tempObject = nullptr; }
+            if (m_ws && m_ws->count() > 0) m_ws->textAll(buildStateJSON());
+            r->send(200, "text/plain", "OK");
+        },
+        NULL,
+        [](AsyncWebServerRequest* r, uint8_t* data, size_t len, size_t index, size_t total) {
+            if (index == 0) { r->_tempObject = new String(); ((String*)r->_tempObject)->reserve(total + 1); }
+            String* body = (String*)r->_tempObject;
+            if (body) for (size_t i = 0; i < len; i++) (*body) += (char)data[i];
+        });
     m_server->on("/update", HTTP_GET, [](AsyncWebServerRequest* r) {
         r->send(200, "text/html", "<html><body style='background:#0f0f23;color:#e0e0e0;font-family:sans-serif;text-align:center;padding:40px'><h2>Firmware Update</h2><p style='color:#e74c3c'>Developer Only - Use main UI for guided update</p><form id='f' method='POST' enctype='multipart/form-data'><input type='password' id='p' placeholder='Password' style='margin:10px;padding:8px'><br><input type='file' name='firmware' style='margin:10px'><br><input type='button' value='Upload' onclick=\"f.action='/update?pass='+encodeURIComponent(p.value);f.submit()\" style='padding:12px 24px;font-size:16px;cursor:pointer'></form></body></html>");
     });
@@ -1463,6 +1660,9 @@ void WebUI::update() {
         m_pendingSave = 0;
         m_configStore->save(*m_settings);  // single NVS write for all settings
     }
+
+    // Multi-watch config push (deferred out of the WS handler to avoid blocking it)
+    if (m_syncRequested) { m_syncRequested = false; doConfigSync(); }
 
     unsigned long iv = (m_swRunning || m_tabRunning) ? WS_BROADCAST_FAST_MS : WS_BROADCAST_SLOW_MS;
     if (now - m_lastBroadcast >= iv) { m_lastBroadcast = now; broadcastState(); m_ws->cleanupClients(); }

@@ -41,6 +41,10 @@ public:
     const DSTRule& getDSTEnd() const { return m_dstEnd; }
 
     unsigned long getEpochTime() const;
+    // Sub-second NTP-synced time (ms since epoch). Identical across NTP-synced clocks,
+    // so it can phase-lock animations/rotations without any device-to-device messaging.
+    // Returns 0 if not yet synced.
+    uint64_t getEpochMillis() const;
     bool isTimeSynced() const { return m_synced; }
 
     static const TimezoneEntry TIMEZONE_TABLE[];
@@ -62,6 +66,10 @@ private:
 
     unsigned long m_lastNtpSync = 0;
     unsigned long m_lastDstCheck = 0;
+
+    // Anchor for sub-second epoch interpolation (see getEpochMillis)
+    unsigned long m_epochAnchorSec = 0;
+    unsigned long m_epochAnchorMillis = 0;
 
     void checkDST();
     bool computeCustomDST() const;

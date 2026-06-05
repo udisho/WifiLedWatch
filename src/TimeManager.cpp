@@ -69,6 +69,16 @@ void TimeManager::update() {
         m_synced = true;
     }
 
+    // Track the millis() at which each epoch second begins, so getEpochMillis() can
+    // interpolate sub-second time aligned to the NTP-synced wall clock.
+    if (m_synced) {
+        unsigned long e = m_ntpClient->getEpochTime();
+        if (e != m_epochAnchorSec) {
+            m_epochAnchorSec = e;
+            m_epochAnchorMillis = now;
+        }
+    }
+
     if (now - m_lastDstCheck >= DST_CHECK_INTERVAL) {
         m_lastDstCheck = now;
         checkDST();
@@ -100,6 +110,12 @@ int TimeManager::getMinutes() const { return m_ntpClient ? m_ntpClient->getMinut
 int TimeManager::getSeconds() const { return m_ntpClient ? m_ntpClient->getSeconds() : 0; }
 int TimeManager::get4Digit() const  { return getHours() * 100 + getMinutes(); }
 unsigned long TimeManager::getEpochTime() const { return m_ntpClient ? m_ntpClient->getEpochTime() : 0; }
+uint64_t TimeManager::getEpochMillis() const {
+    if (!m_synced) return 0;
+    unsigned long frac = millis() - m_epochAnchorMillis;  // ms since this second began
+    if (frac > 1000) frac = 1000;                          // clamp if update() lagged
+    return (uint64_t)m_epochAnchorSec * 1000ULL + frac;
+}
 int TimeManager::getDay() const {
     if (!m_ntpClient) return 1;
     // getEpochTime() already includes timezone + DST offset via setTimeOffset

@@ -38,13 +38,16 @@ public:
     void scrollCONN();  // one frame of scrolling "CONN" right-to-left
     void showIP(const char* ip);
     void scrollText(const char* text, int delayMs);
+    void showWord(const char* word);  // static, non-blocking: render up to NUM_DIGITS chars
     void clear();
 
     // Animations
     void runStartupAnimation();
     void runCascadeAnimation();
     void showCrazy();
-    void showPulse();
+    // tMs = absolute time base in ms (NTP-synced epoch ms, or local millis() as fallback).
+    // Driving the pulse from a shared time base makes it identical across all clocks.
+    void showPulse(uint64_t tMs);
 
     // Color
     void setColor(CRGB color);
