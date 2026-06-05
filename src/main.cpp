@@ -703,6 +703,15 @@ void loop() {
     // Phase 0 = temp (2s), phase 1 = date (2s). If only one enabled, single phase.
     static int infoPhase = 0;  // 0=temp, 1=date
     bool infoEnabled = (settings.showDateEnabled || settings.showTempEnabled) && timeManager.isTimeSynced();
+    // If the info display is disabled (or toggled off) while a date/temp frame is on screen,
+    // release the display so the clock resumes instead of freezing on the date.
+    if (!infoEnabled && dateShowing) {
+        dateShowing = false;
+        ledDisplay.clearOverrideColor();
+        webUI.setDisplayTemp(false);
+        digitalWrite(COLON_LED_PIN, LOW);
+        lastClockDisplay = -1;  // force the clock to redraw
+    }
     if (mode == MODE_CLOCK && infoEnabled) {
         unsigned long infoIv = (unsigned long)settings.showDateIntervalSec * 1000UL;
         // Start the info rotation on a shared wall-clock boundary (epoch % interval == 0) so
