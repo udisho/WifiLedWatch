@@ -581,10 +581,10 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
   <div class="card hero">
     <div class="phase ready" id="tmPhase">READY</div>
     <div class="htime ready" id="tmHtime">01:00</div>
-    <button class="btn-start" id="tmStart" onclick="tmToggle()">Start</button>
+    <button class="btn-start" id="tmStart" onclick="tmPrimary()">Start</button>
     <div class="subrow">
       <button class="btn-sub" id="tmResetBtn" onclick="tmReset()" style="display:none">Reset</button>
-      <button class="btn-allw" id="tmBcastBtn" onclick="tmToggle(true)" style="display:none">All&nbsp;Watches</button>
+      <button class="btn-allw" id="tmSec" onclick="tmSecondary()" style="display:none">This Watch</button>
     </div>
   </div>
   <div class="card" id="tmSetup">
@@ -606,10 +606,10 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
     <div class="htime ready" id="tbHtime">00:20</div>
     <div class="rinfo" id="tbRinfo">Round 1 of 8</div>
     <div class="rnext" id="tbRnext">Next: Rest 00:10</div>
-    <button class="btn-start" id="tbStart" onclick="tabToggle()">Start</button>
+    <button class="btn-start" id="tbStart" onclick="tbPrimary()">Start</button>
     <div class="subrow">
       <button class="btn-sub" id="tbResetBtn" onclick="send({cmd:'tabata',action:'reset'})" style="display:none">Reset</button>
-      <button class="btn-allw" id="tabBcastBtn" onclick="tabToggle(true)" style="display:none">All&nbsp;Watches</button>
+      <button class="btn-allw" id="tbSec" onclick="tbSecondary()" style="display:none">This Watch</button>
     </div>
   </div>
   <div class="card" id="tbSetup">
@@ -1020,7 +1020,7 @@ function updateUI(){var _sy=window.pageYOffset;
   if(st.ssid)document.getElementById('wifiSSID').textContent=st.ssid;
   if(st.ip)document.getElementById('wifiIP').textContent=st.ip;
   var hasPeers=st.peers&&st.peers>0;
-  if(hasPeers!==prev.hasPeers){prev.hasPeers=hasPeers;['swBcastBtn','tmBcastBtn','tabBcastBtn','pomBcastBtn','syncCfgBtn'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display=hasPeers?'':'none';});var np=document.getElementById('syncNoPeers');if(np)np.style.display=hasPeers?'none':'';}
+  if(hasPeers!==prev.hasPeers){prev.hasPeers=hasPeers;['swBcastBtn','pomBcastBtn','syncCfgBtn'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display=hasPeers?'':'none';});var np=document.getElementById('syncNoPeers');if(np)np.style.display=hasPeers?'none':'';}
   if(st.bcasting&&!prev.bcasting){prev.bcasting=true;document.getElementById('timeDisp').insertAdjacentHTML('afterend','<div id="bcastBadge" style="text-align:center;font-size:11px;color:#6e7dff;font-weight:700;margin-top:4px">BROADCASTING TO ALL</div>');}
   if(!st.bcasting&&prev.bcasting){prev.bcasting=false;var bb=document.getElementById('bcastBadge');if(bb)bb.remove();}
   if(window.pageYOffset!==_sy)window.scrollTo(0,_sy);
@@ -1044,16 +1044,11 @@ function tdParse(str){str=(''+str).trim();var sec;if(str.indexOf(':')>=0){var p=
 function tdEdit(){if(st.tmRun)return;var el=document.getElementById('tdVal');if(el.querySelector('input'))return;tdEditing=true;el.innerHTML='';var inp=document.createElement('input');inp.className='editbox';inp.value=tdFmt(TD);el.appendChild(inp);inp.focus();inp.select();var done=false;function commit(){if(done)return;done=true;tdEditing=false;tdSet(tdParse(inp.value));}inp.addEventListener('blur',commit);inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();commit();}else if(e.key==='Escape'){done=true;tdEditing=false;tdValRender();}});}
 function tdPreview(){var ph=document.getElementById('tmPhase'),ht=document.getElementById('tmHtime');if(!ph)return;ph.className='phase ready';ph.textContent='READY';ht.className='htime ready';ht.textContent=tdFmt(TD);}
 function tmReset(){send({cmd:'timer',action:'reset'});}
-function tmToggle(bc){
-  if(st.tmRun){send({cmd:'timer',action:'stop'});return;}
-  if(st.tmMs>0&&!st.tmDone){send({cmd:'timer',action:'start',broadcast:!!bc});return;}
-  send({cmd:'timer',action:'start',duration:TD*1000,broadcast:!!bc});
-}
+function tmStartAction(bc){if(st.tmMs>0&&!st.tmDone)send({cmd:'timer',action:'start',broadcast:!!bc});else send({cmd:'timer',action:'start',duration:TD*1000,broadcast:!!bc});}
+function tmPrimary(){if(!st.tmRun){tmStartAction(st.peers>0);return;}if(st.bcasting||!(st.peers>0))send({cmd:'timer',action:'stop'});else send({cmd:'timer',action:'castnow'});}
+function tmSecondary(){if(!st.tmRun)tmStartAction(false);else send({cmd:'timer',action:'stop'});}
 function tmRenderLive(){
-  var b=document.getElementById('tmStart');
-  if(st.tmRun){b.textContent='Stop';b.classList.add('stop');}
-  else if(st.tmMs>0&&!st.tmDone){b.textContent='Resume';b.classList.remove('stop');}
-  else{b.textContent='Start';b.classList.remove('stop');}
+  castButtons(document.getElementById('tmStart'),document.getElementById('tmSec'),st.tmRun,st.bcasting,(st.tmMs>0&&!st.tmDone)?'Resume':'Start');
   var ph=document.getElementById('tmPhase'),ht=document.getElementById('tmHtime');
   if(st.tmDone){ph.className='phase done';ph.textContent="TIME'S UP";ht.className='htime done';ht.textContent='00:00';}
   else if(st.tmRun){var s=Math.ceil(Math.max(0,st.tmMs)/1000);ph.className='phase run';ph.textContent='RUNNING';ht.className='htime run';ht.textContent=tdFmt(s);}
@@ -1080,8 +1075,16 @@ function tbParse(k,str){str=(''+str).trim();if(k==='rounds')return tbClamp('roun
 function tbEdit(k){if(st.tabRun)return;var map={work:'tbWorkVal',rest:'tbRestVal',rounds:'tbRoundsVal'};var el=document.getElementById(map[k]);if(el.querySelector('input'))return;tbEditing=true;var cur=(k==='rounds')?TB.rounds:tbFmt(TB[k]);el.innerHTML='';var inp=document.createElement('input');inp.className='editbox';inp.value=cur;inp.setAttribute('inputmode',k==='rounds'?'numeric':'text');el.appendChild(inp);inp.focus();inp.select();var done=false;function commit(){if(done)return;done=true;tbEditing=false;tbSet(k,tbParse(k,inp.value));}inp.addEventListener('blur',commit);inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();commit();}else if(e.key==='Escape'){done=true;tbEditing=false;tbVals();}});}
 function tbApplyCfg(){send({cmd:'tabata_cfg',work:TB.work,rest:TB.rest,intervals:TB.rounds,workColor:+document.getElementById('tabWC').value,restColor:+document.getElementById('tabRC').value});}
 function tabToggle(bc){if(st.tabRun){send({cmd:'tabata',action:'stop'});return;}tbApplyCfg();send({cmd:'tabata',action:'start',broadcast:!!bc});}
+// Button hierarchy: with peers present, "All Watches" is the big primary; "This Watch" is small.
+// While running locally, "All Watches" makes peers JOIN the live session (no stop).
+function castButtons(big,sec,run,bc,startLabel){var peers=st.peers>0,bigLabel,bigStop=false,secLabel='',secShow=false;
+  if(!run){if(peers){bigLabel='All Watches';secLabel='This Watch';secShow=true;}else bigLabel=startLabel;}
+  else{if(bc||!peers){bigLabel='Stop';bigStop=true;}else{bigLabel='All Watches';secLabel='Stop';secShow=true;}}
+  big.textContent=bigLabel;big.classList.toggle('stop',bigStop);sec.textContent=secLabel;sec.style.display=secShow?'':'none';}
+function tbPrimary(){if(!st.tabRun){tabToggle(st.peers>0);return;}if(st.bcasting||!(st.peers>0))send({cmd:'tabata',action:'stop'});else send({cmd:'tabata',action:'castnow'});}
+function tbSecondary(){if(!st.tabRun)tabToggle(false);else send({cmd:'tabata',action:'stop'});}
 function tbRenderLive(){
-  var b=document.getElementById('tbStart');if(st.tabRun){b.textContent='Stop';b.classList.add('stop');}else{b.textContent='Start';b.classList.remove('stop');}
+  castButtons(document.getElementById('tbStart'),document.getElementById('tbSec'),st.tabRun,st.bcasting,'Start');
   if(st.tabDone){document.getElementById('tbPhase').className='phase done';document.getElementById('tbPhase').textContent='DONE!';document.getElementById('tbHtime').className='htime ready';document.getElementById('tbHtime').textContent='00:00';document.getElementById('tbRinfo').textContent='Round '+st.tabInt+' of '+(st.tabTotal||TB.rounds);document.getElementById('tbRnext').textContent='';}
   else if(st.tabRun){var s=Math.ceil(Math.max(0,st.tabMs)/1000),w=st.tabWork;document.getElementById('tbPhase').className='phase '+(w?'work':'rest');document.getElementById('tbPhase').textContent=w?'WORK':'REST';document.getElementById('tbHtime').className='htime '+(w?'work':'rest');document.getElementById('tbHtime').textContent=tbFmt(s);document.getElementById('tbRinfo').textContent='Round '+st.tabInt+' of '+(st.tabTotal||TB.rounds);document.getElementById('tbRnext').textContent='Next: '+(w?('Rest '+tbFmt(TB.rest)):('Work '+tbFmt(TB.work)));}
   else{tbPreviewIdle();}
@@ -1251,8 +1254,8 @@ void WebUI::handleWebSocketMessage(AsyncWebSocketClient* client, uint8_t* data, 
     else if (cmd == "mode") { int v = extractInt(msg, "value"); if (v >= 0 && v <= 4) m_mode = (DisplayMode)v; }
     else if (cmd == "clockfmt") { m_settings->clockShowMMSS = extractBool(msg, "mmss"); m_pendingSave = millis(); }
     else if (cmd == "sw") { String a = extractString(msg, "action"); if (a == "start") { stopwatchStart(); if (extractBool(msg, "broadcast") && m_heartbeat) m_heartbeat->startBroadcast(MODE_STOPWATCH, true, 0, true, 1, 1, false); } else if (a == "restart") { stopwatchRestart(); if (extractBool(msg, "broadcast") && m_heartbeat) m_heartbeat->startBroadcast(MODE_STOPWATCH, true, 0, true, 1, 1, false); } else if (a == "stop") { stopwatchStop(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } else if (a == "reset") { stopwatchReset(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } }
-    else if (cmd == "timer") { String a = extractString(msg, "action"); if (a == "start") { int d = extractInt(msg, "duration"); if (d > 0) timerSet(d); timerStart(); if (extractBool(msg, "broadcast") && m_heartbeat) m_heartbeat->startBroadcast(MODE_TIMER, true, getTimerRemaining(), true, 1, 1, false); } else if (a == "set") { int d = extractInt(msg, "duration"); if (d > 0) timerSet(d); } else if (a == "stop") { timerStop(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } else if (a == "reset") { timerReset(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } }
-    else if (cmd == "tabata") { String a = extractString(msg, "action"); if (a == "start") { tabataStart(); if (extractBool(msg, "broadcast") && m_heartbeat) m_heartbeat->startBroadcast(MODE_TABATA, true, getTabataPhaseRemaining(), true, 1, m_settings->tabata.intervals, false, m_settings->tabata.workColorIdx, m_settings->tabata.restColorIdx); } else if (a == "stop") { tabataStop(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } else if (a == "reset") { tabataReset(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } }
+    else if (cmd == "timer") { String a = extractString(msg, "action"); if (a == "start") { int d = extractInt(msg, "duration"); if (d > 0) timerSet(d); timerStart(); if (extractBool(msg, "broadcast") && m_heartbeat) m_heartbeat->startBroadcast(MODE_TIMER, true, getTimerRemaining(), true, 1, 1, false); } else if (a == "set") { int d = extractInt(msg, "duration"); if (d > 0) timerSet(d); } else if (a == "castnow") { if (m_heartbeat && m_timerRunning) m_heartbeat->startBroadcast(MODE_TIMER, true, getTimerRemaining(), true, 1, 1, false); } else if (a == "stop") { timerStop(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } else if (a == "reset") { timerReset(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } }
+    else if (cmd == "tabata") { String a = extractString(msg, "action"); if (a == "start") { tabataStart(); if (extractBool(msg, "broadcast") && m_heartbeat) m_heartbeat->startBroadcast(MODE_TABATA, true, getTabataPhaseRemaining(), true, 1, m_settings->tabata.intervals, false, m_settings->tabata.workColorIdx, m_settings->tabata.restColorIdx); } else if (a == "castnow") { if (m_heartbeat && m_tabRunning) m_heartbeat->startBroadcast(MODE_TABATA, true, getTabataPhaseRemaining(), m_tabWorkPhase, m_tabCurrentInterval, m_settings->tabata.intervals, false, m_settings->tabata.workColorIdx, m_settings->tabata.restColorIdx); } else if (a == "stop") { tabataStop(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } else if (a == "reset") { tabataReset(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } }
     else if (cmd == "tabata_cfg") { int w = extractInt(msg, "work"), r = extractInt(msg, "rest"), n = extractInt(msg, "intervals"), wc = extractInt(msg, "workColor"), rc = extractInt(msg, "restColor"); if (w > 0) m_settings->tabata.workSec = w; if (r > 0) m_settings->tabata.restSec = r; if (n > 0) m_settings->tabata.intervals = n; if (wc >= 0) m_settings->tabata.workColorIdx = wc; if (rc >= 0) m_settings->tabata.restColorIdx = rc; m_pendingSave = millis(); tabataReset(); }
     else if (cmd == "timezone") { long v = (long)extractInt(msg, "value"); m_timeMgr->setTimezoneOffset(v); m_settings->timezoneOffset = v; m_pendingSave = millis(); }
     else if (cmd == "dst") { int v = extractInt(msg, "value"); m_timeMgr->setDSTMode(v); m_settings->dstMode = v; m_pendingSave = millis(); }
