@@ -470,9 +470,9 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
 .wsum{font-size:13px;margin-top:2px}
 .wtotal{font-size:12px;color:var(--accent);margin-top:2px}
 .phase{font-size:15px;font-weight:800;letter-spacing:2px;margin:14px 0 2px}
-.phase.ready{color:var(--text2)}.phase.work{color:var(--work)}.phase.rest{color:var(--rest)}.phase.done{color:var(--accent)}
+.phase.ready{color:var(--text2)}.phase.work{color:var(--work)}.phase.rest{color:var(--rest)}.phase.done{color:var(--accent)}.phase.run{color:var(--accent)}
 .htime{font-size:64px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;margin:2px 0}
-.htime.work{color:var(--work)}.htime.rest{color:var(--rest)}.htime.ready{color:var(--text)}
+.htime.work{color:var(--work)}.htime.rest{color:var(--rest)}.htime.ready{color:var(--text)}.htime.run{color:var(--accent)}
 .rinfo{font-size:13px;color:var(--text2)}
 .rnext{font-size:12px;color:var(--text2);margin-top:2px;opacity:.85;min-height:14px}
 .btn-start{display:block;width:100%;margin-top:16px;padding:18px;font-size:20px;letter-spacing:1px;background:var(--accent);color:#001014;border-radius:14px;border:none;font-weight:700;cursor:pointer}
@@ -489,6 +489,11 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
 .chips{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:10px}
 .chip{min-width:52px;min-height:40px;padding:8px 12px;border-radius:20px;background:var(--btn);color:var(--text);font-size:13px;font-weight:600;border:1px solid transparent;cursor:pointer}
 .chip.sel{background:rgba(68,217,225,.15);border-color:var(--accent);color:var(--accent)}
+.step-btn,.chip,.btn-start,.btn-sub,.btn-allw{transition:transform .08s,background .12s,filter .12s}
+.step-btn:active{transform:scale(.86);background:var(--accent);color:#001014}
+.chip:active{transform:scale(.92)}
+.btn-start:active{transform:scale(.98);filter:brightness(.85)}
+.btn-sub:active,.btn-allw:active{transform:scale(.95);filter:brightness(.88)}
 .edih{font-size:15px;color:var(--text2);opacity:.45;margin-left:4px}
 .editbox{width:130px;font-size:30px;font-weight:800;text-align:center;font-variant-numeric:tabular-nums;background:var(--bg);color:var(--accent);border:2px solid var(--accent);border-radius:8px;padding:2px}
 .edit-hint{text-align:center;font-size:11px;color:var(--text2);opacity:.7;margin-top:6px}
@@ -501,6 +506,12 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
 .empty{font-size:12px;color:var(--text2);text-align:center;padding:10px}
 .saverow{display:flex;gap:8px;margin-top:6px}
 .saverow input{flex:1;padding:10px;border-radius:8px;border:1px solid #333;background:var(--btn);color:var(--text);font-size:13px}
+/* Desktop: center the app and lay Tabata's setup + presets side-by-side so nothing scrolls */
+@media(min-width:760px){
+  body{max-width:920px;margin:0 auto}
+  #tabata.active{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+  #tabata.active>.hero{grid-column:1/-1}
+}
 .seg-bar.anim .seg-digit span{animation:segAnim .3s infinite alternate}
 @keyframes segAnim{0%{background:var(--accent)}50%{background:#6e7dff}100%{background:#ff6e7d}}
 .seg-bar.paused .seg-wrap,.seg-bar.paused .big-time{animation:pausePulse 2s ease-in-out infinite}
@@ -528,7 +539,7 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
   <div class="tab" data-tab="pomodoro">Pomodoro</div>
   <div class="tab" data-tab="settings">Settings</div>
 </div>
-<div class="seg-bar"><div class="seg-wrap" id="segDisp"><div class="seg-digit" id="sd0"></div><div class="seg-digit" id="sd1"></div><div class="seg-colon"><i></i><i></i></div><div class="seg-digit" id="sd2"></div><div class="seg-digit" id="sd3"></div></div><div class="big-time" id="timeDisp">--<span class="blink">:</span>--<span class="sec">:--</span></div></div>
+<div class="seg-bar"><div class="seg-wrap" id="segDisp"><div class="seg-digit" id="sd0"></div><div class="seg-digit" id="sd1"></div><div class="seg-colon"><i></i><i></i></div><div class="seg-digit" id="sd2"></div><div class="seg-digit" id="sd3"></div></div></div>
 
 <div class="panel active" id="clock">
   <div class="card">
@@ -567,14 +578,21 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
 </div>
 
 <div class="panel" id="timer">
-  <div class="card">
-    <div class="sw-time" id="timerDisp">01:00</div>
-    <div class="wheel" id="timerSetRow"><div><div class="wc-wrap"><div class="wc" id="timerMinW"></div></div><div class="wc-label">min</div></div><div class="wheel-sep">:</div><div><div class="wc-wrap"><div class="wc" id="timerSecW"></div></div><div class="wc-label">sec</div></div></div>
-    <div style="text-align:center;margin:-6px 0 10px;font-size:12px;color:var(--text2)">or type&nbsp; <input type="number" id="timerMinN" min="0" max="59" class="numbox">&nbsp;:&nbsp;<input type="number" id="timerSecN" min="0" max="59" class="numbox"></div>
-    <div class="btn-row">
-      <button class="btn btn-secondary" id="tmSetBtn" onclick="tmSet()">Set</button>
-      <button class="btn" id="tmToggle" onclick="tmToggle()">Start</button>
-      <button class="btn btn-accent" id="tmBcastBtn" onclick="tmToggle(true)" style="display:none;font-size:11px;padding:8px 12px">All Watches</button>
+  <div class="card hero">
+    <div class="phase ready" id="tmPhase">READY</div>
+    <div class="htime ready" id="tmHtime">01:00</div>
+    <button class="btn-start" id="tmStart" onclick="tmToggle()">Start</button>
+    <div class="subrow">
+      <button class="btn-sub" id="tmResetBtn" onclick="tmReset()" style="display:none">Reset</button>
+      <button class="btn-allw" id="tmBcastBtn" onclick="tmToggle(true)" style="display:none">All&nbsp;Watches</button>
+    </div>
+  </div>
+  <div class="card" id="tmSetup">
+    <div class="set-row" style="margin:4px 0">
+      <div class="set-label" style="color:var(--accent)">DURATION</div>
+      <div class="stepper"><button class="step-btn" onclick="tdBump(-30)">&minus;30s</button><div class="step-val" id="tdVal" onclick="tdEdit()">01:00</div><button class="step-btn" onclick="tdBump(30)">+30s</button></div>
+      <div class="chips" id="tdChips"></div>
+      <div class="edit-hint">Tap the time to type it exactly</div>
     </div>
   </div>
 </div>
@@ -849,10 +867,8 @@ function getWheel(id){return Math.max(0,Math.round(document.getElementById(id).s
 function bindNum(wheelId,max){var n=document.getElementById(wheelId.replace(/W$/,'N'));if(!n)return;n.addEventListener('input',function(){var v=parseInt(n.value);if(isNaN(v))return;v=Math.min(max,Math.max(0,v));document.getElementById(wheelId).scrollTop=v*40;});}
 function init(){
   initSegs();
-  makeWheel('timerMinW',59);makeWheel('timerSecW',59);
-  bindNum('timerMinW',59);bindNum('timerSecW',59);
+  tdSetup();
   tbSetupRender();
-  setWheel('timerMinW',1);setWheel('timerSecW',0);
   document.querySelectorAll('.tab').forEach(t=>{
     t.onclick=()=>{
       const dest=t.dataset.tab;
@@ -922,18 +938,9 @@ function updateUI(){var _sy=window.pageYOffset;
     document.getElementById(dest).classList.add('active');
   }
   if(st.dv!==undefined){
-    const t=document.getElementById('timeDisp');
     const v=st.dv;
-    const d0=Math.floor(v/1000)%10,d1=Math.floor(v/100)%10,d2=Math.floor(v/10)%10,d3=v%10;
-    var th;
-    if(st.db){th='<span style="opacity:.3">--:--</span>';}
-    else{th=P(d0*10+d1)+'<span class="blink">:</span>'+P(d2*10+d3);
-      if(st.mode===0)th+=('<span class="sec">:'+P(st.s)+'</span>');
-      if(st.mode===1)th+=('<span class="sec">.'+Math.floor(((st.swMs||0)%1000)/100)+'</span>');
-    }
-    if(prev.th!==th){prev.th=th;t.innerHTML=th;}
     if(prev.dv!==v||prev.db!==st.db){prev.dv=v;prev.db=st.db;updateSeg();}
-    if(st.clrMode>=2){prev.clrMode=st.clrMode;animSegColors();t.style.color='var(--accent)';}else{if(prev.clrMode>=2){for(var i=0;i<4;i++)document.getElementById('sd'+i).style.removeProperty('--clr');prev.clrMode=st.clrMode;}if(st.clr&&prev.clr!==st.clr){prev.clr=st.clr;document.getElementById('segDisp').style.setProperty('--clr',st.clr);t.style.color=st.clr;}}
+    if(st.clrMode>=2){prev.clrMode=st.clrMode;animSegColors();}else{if(prev.clrMode>=2){for(var i=0;i<4;i++)document.getElementById('sd'+i).style.removeProperty('--clr');prev.clrMode=st.clrMode;}if(st.clr&&prev.clr!==st.clr){prev.clr=st.clr;document.getElementById('segDisp').style.setProperty('--clr',st.clr);}}
   }
   if(st.anim!==prev.anim){prev.anim=st.anim;document.querySelector('.seg-bar').classList.toggle('anim',!!st.anim);}
   var paused=(!st.swRun&&st.swMs>0&&st.mode===1)||(!st.tmRun&&!st.tmDone&&st.tmMs>0&&st.tmMs<st.tmDur&&st.mode===2)||(st.tabPaused&&st.mode===3);
@@ -954,11 +961,8 @@ function updateUI(){var _sy=window.pageYOffset;
     var swRstVis=(!st.swRun&&st.swMs>0)?'':'none';if(prev.swRst!==swRstVis){prev.swRst=swRstVis;document.getElementById('swReset2').style.display=swRstVis;}
   }
   if(st.tmMs!==undefined){
-    var tmTxt;if(!st.tmRun&&(!st.tmMs||st.tmMs<=0)&&!st.tmDone){const m=getWheel('timerMinW'),s=getWheel('timerSecW');tmTxt=P(m)+':'+P(s);}else{const ms=Math.max(0,st.tmMs),s=Math.ceil(ms/1000),m=Math.floor(s/60);tmTxt=P(m)+':'+P(s%60);}
-    if(prev.tmTxt!==tmTxt){prev.tmTxt=tmTxt;document.getElementById('timerDisp').textContent=tmTxt;}
-    var tmBt,tmBc;if(st.tmRun){tmBt='Stop';tmBc='btn btn-danger';}else if(st.tmMs>0&&!st.tmDone){tmBt='Resume';tmBc='btn btn-primary';}else{tmBt='Start';tmBc='btn btn-primary';}
-    if(prev.tmBt!==tmBt){prev.tmBt=tmBt;const b=document.getElementById('tmToggle');b.textContent=tmBt;b.className=tmBc;}
-    if(st.tmRun!==prev.tmRun2){prev.tmRun2=st.tmRun;document.getElementById('timerSetRow').style.display=st.tmRun?'none':'';document.getElementById('tmSetBtn').style.display=st.tmRun?'none':'';}
+    if(st.tmDur!==undefined&&!tdSynced&&st.tmDur>0){tdSynced=true;TD=Math.round(st.tmDur/1000);tdSetup();}
+    tmRenderLive();
   }
   if(st.tabMs!==undefined){tbRenderLive();}
   if(st.tz!==undefined&&st.full)document.getElementById('tzSelect').value=st.tz;
@@ -1025,11 +1029,38 @@ function swToggle(bc){
   if(st.swRun) send({cmd:'sw',action:'stop'});
   else send({cmd:'sw',action:'start',broadcast:!!bc});
 }
-function tmSet(){var d=(getWheel('timerMinW')*60+getWheel('timerSecW'))*1000;send({cmd:'timer',action:'set',duration:d});}
+// ---- Timer (recipe-style UI) ----
+var TD=60,tdSynced=false,tdEditing=false;
+var TDCH=[60,180,300,600,1200];
+var TDPEN=' <span class="edih">&#9998;</span>';
+function tdFmt(s){return P(Math.floor(s/60))+':'+P(s%60);}
+function tdClamp(v){if(isNaN(v))return TD;return Math.max(1,Math.min(3599,Math.round(v)));}
+function tdChips(){var el=document.getElementById('tdChips');if(!el)return;el.innerHTML=TDCH.map(function(v){return '<button class="chip'+(TD===v?' sel':'')+'" onclick="tdSet('+v+')">'+tdFmt(v)+'</button>';}).join('');}
+function tdValRender(){if(tdEditing)return;var el=document.getElementById('tdVal');if(el)el.innerHTML=tdFmt(TD)+TDPEN;}
+function tdSetup(){tdChips();tdValRender();if(!st.tmRun&&!(st.tmMs>0))tdPreview();}
+function tdSet(v){TD=tdClamp(v);tdSetup();}
+function tdBump(d){tdSet(TD+d);}
+function tdParse(str){str=(''+str).trim();var sec;if(str.indexOf(':')>=0){var p=str.split(':');sec=(parseInt(p[0],10)||0)*60+(parseInt(p[1],10)||0);}else sec=parseInt(str,10);return tdClamp(sec);}
+function tdEdit(){if(st.tmRun)return;var el=document.getElementById('tdVal');if(el.querySelector('input'))return;tdEditing=true;el.innerHTML='';var inp=document.createElement('input');inp.className='editbox';inp.value=tdFmt(TD);el.appendChild(inp);inp.focus();inp.select();var done=false;function commit(){if(done)return;done=true;tdEditing=false;tdSet(tdParse(inp.value));}inp.addEventListener('blur',commit);inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();commit();}else if(e.key==='Escape'){done=true;tdEditing=false;tdValRender();}});}
+function tdPreview(){var ph=document.getElementById('tmPhase'),ht=document.getElementById('tmHtime');if(!ph)return;ph.className='phase ready';ph.textContent='READY';ht.className='htime ready';ht.textContent=tdFmt(TD);}
+function tmReset(){send({cmd:'timer',action:'reset'});}
 function tmToggle(bc){
-  if(st.tmRun) send({cmd:'timer',action:'stop'});
-  else if(st.tmMs>0&&!st.tmDone) send({cmd:'timer',action:'start',broadcast:!!bc});
-  else send({cmd:'timer',action:'start',duration:(getWheel('timerMinW')*60+getWheel('timerSecW'))*1000,broadcast:!!bc});
+  if(st.tmRun){send({cmd:'timer',action:'stop'});return;}
+  if(st.tmMs>0&&!st.tmDone){send({cmd:'timer',action:'start',broadcast:!!bc});return;}
+  send({cmd:'timer',action:'start',duration:TD*1000,broadcast:!!bc});
+}
+function tmRenderLive(){
+  var b=document.getElementById('tmStart');
+  if(st.tmRun){b.textContent='Stop';b.classList.add('stop');}
+  else if(st.tmMs>0&&!st.tmDone){b.textContent='Resume';b.classList.remove('stop');}
+  else{b.textContent='Start';b.classList.remove('stop');}
+  var ph=document.getElementById('tmPhase'),ht=document.getElementById('tmHtime');
+  if(st.tmDone){ph.className='phase done';ph.textContent="TIME'S UP";ht.className='htime done';ht.textContent='00:00';}
+  else if(st.tmRun){var s=Math.ceil(Math.max(0,st.tmMs)/1000);ph.className='phase run';ph.textContent='RUNNING';ht.className='htime run';ht.textContent=tdFmt(s);}
+  else if(st.tmMs>0){var s2=Math.ceil(Math.max(0,st.tmMs)/1000);ph.className='phase ready';ph.textContent='PAUSED';ht.className='htime ready';ht.textContent=tdFmt(s2);}
+  else{tdPreview();}
+  document.getElementById('tmSetup').style.display=st.tmRun?'none':'';
+  document.getElementById('tmResetBtn').style.display=(!st.tmRun&&(st.tmMs>0||st.tmDone))?'':'none';
 }
 // ---- Tabata (recipe-style UI) ----
 var TB={work:20,rest:10,rounds:8},tbSynced=false,tbEditing=false;
