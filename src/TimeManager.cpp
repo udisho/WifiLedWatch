@@ -1,5 +1,6 @@
 #include "TimeManager.h"
 #include <Arduino.h>
+#include <sys/time.h>
 
 const TimezoneEntry TimeManager::TIMEZONE_TABLE[] = {
     { "UTC-12:00 (Baker Island)",     -43200 },
@@ -37,6 +38,11 @@ void TimeManager::begin(WifiManager* wifiMgr) {
     m_wifiMgr = wifiMgr;
     m_ntpClient = new NTPClient(m_udp, NTP_SERVER, 0, 60000);
     m_ntpClient->begin();
+
+    // Also start the ESP32 SNTP system clock (UTC). NTPClient only keeps whole seconds, which
+    // leaves each watch's sub-second phase offset by up to ~1s; gettimeofday() gives ms-accurate
+    // time aligned across devices, used by getEpochMillis() for animation/session sync.
+    configTime(0, 0, NTP_SERVER);
 
     m_ntpClient->forceUpdate();
     if (m_ntpClient->isTimeSet()) {
@@ -111,9 +117,15 @@ int TimeManager::getSeconds() const { return m_ntpClient ? m_ntpClient->getSecon
 int TimeManager::get4Digit() const  { return getHours() * 100 + getMinutes(); }
 unsigned long TimeManager::getEpochTime() const { return m_ntpClient ? m_ntpClient->getEpochTime() : 0; }
 uint64_t TimeManager::getEpochMillis() const {
+    // Prefer the SNTP-disciplined system clock: ms-accurate and aligned across devices.
+    struct timeval tv;
+    if (gettimeofday(&tv, nullptr) == 0 && tv.tv_sec > 1600000000L) {  // set (post-2020)
+        return (uint64_t)tv.tv_sec * 1000ULL + (uint64_t)(tv.tv_usec / 1000);
+    }
+    // Fallback before SNTP has set the clock: whole-second epoch interpolated with millis().
     if (!m_synced) return 0;
-    unsigned long frac = millis() - m_epochAnchorMillis;  // ms since this second began
-    if (frac > 1000) frac = 1000;                          // clamp if update() lagged
+    unsigned long frac = millis() - m_epochAnchorMillis;
+    if (frac > 1000) frac = 1000;
     return (uint64_t)m_epochAnchorSec * 1000ULL + frac;
 }
 int TimeManager::getDay() const {
