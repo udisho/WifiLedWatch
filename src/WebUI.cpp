@@ -465,6 +465,42 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
 .wc-label{font-size:12px;color:var(--text2);text-align:center;margin-top:2px}
 .wheel-sep{font-size:24px;font-weight:700;color:var(--accent);padding:0 4px}
 .numbox{width:48px;padding:5px;border-radius:6px;border:1px solid #333;background:var(--btn);color:var(--text);font-size:14px;text-align:center}
+.hero{text-align:center}
+.wname{font-size:13px;color:var(--text2);letter-spacing:1px}
+.wsum{font-size:13px;margin-top:2px}
+.wtotal{font-size:12px;color:var(--accent);margin-top:2px}
+.phase{font-size:15px;font-weight:800;letter-spacing:2px;margin:14px 0 2px}
+.phase.ready{color:var(--text2)}.phase.work{color:var(--work)}.phase.rest{color:var(--rest)}.phase.done{color:var(--accent)}
+.htime{font-size:64px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;margin:2px 0}
+.htime.work{color:var(--work)}.htime.rest{color:var(--rest)}.htime.ready{color:var(--text)}
+.rinfo{font-size:13px;color:var(--text2)}
+.rnext{font-size:12px;color:var(--text2);margin-top:2px;opacity:.85;min-height:14px}
+.btn-start{display:block;width:100%;margin-top:16px;padding:18px;font-size:20px;letter-spacing:1px;background:var(--accent);color:#001014;border-radius:14px;border:none;font-weight:700;cursor:pointer}
+.btn-start.stop{background:var(--danger);color:#fff}
+.subrow{display:flex;gap:8px;margin-top:10px;justify-content:center}
+.btn-sub{flex:1;padding:11px;font-size:13px;background:var(--btn);color:var(--text);border:none;border-radius:12px;font-weight:700;cursor:pointer}
+.btn-allw{padding:11px 14px;font-size:13px;background:transparent;border:1px solid var(--accent2);color:var(--accent2);border-radius:12px;font-weight:700;cursor:pointer}
+.set-row{margin:14px 0}
+.set-label{font-size:12px;font-weight:700;letter-spacing:1px;margin-bottom:8px;text-align:center}
+.set-label.work{color:var(--work)}.set-label.rest{color:var(--rest)}.set-label.rounds{color:var(--accent)}
+.stepper{display:flex;align-items:center;justify-content:center;gap:16px}
+.step-btn{width:48px;height:48px;border-radius:50%;background:var(--btn);color:var(--text);font-size:17px;font-weight:700;border:none;cursor:pointer}
+.step-val{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;min-width:108px;text-align:center;cursor:pointer}
+.chips{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:10px}
+.chip{min-width:52px;min-height:40px;padding:8px 12px;border-radius:20px;background:var(--btn);color:var(--text);font-size:13px;font-weight:600;border:1px solid transparent;cursor:pointer}
+.chip.sel{background:rgba(68,217,225,.15);border-color:var(--accent);color:var(--accent)}
+.edih{font-size:15px;color:var(--text2);opacity:.45;margin-left:4px}
+.editbox{width:130px;font-size:30px;font-weight:800;text-align:center;font-variant-numeric:tabular-nums;background:var(--bg);color:var(--accent);border:2px solid var(--accent);border-radius:8px;padding:2px}
+.edit-hint{text-align:center;font-size:11px;color:var(--text2);opacity:.7;margin-top:6px}
+.colorrow{display:flex;gap:14px;justify-content:center;align-items:center;margin-top:16px;flex-wrap:wrap}
+.colorrow select{padding:8px 10px;border-radius:8px;border:1px solid #333;background:var(--btn);color:var(--text);font-size:13px}
+.preset{display:flex;align-items:center;justify-content:space-between;background:var(--btn);border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;border:1px solid transparent}
+.preset .pn{font-size:14px;font-weight:700}
+.preset .pd{font-size:11px;color:var(--text2);margin-top:2px}
+.pdel{background:none;border:none;color:var(--text2);font-size:18px;cursor:pointer;padding:6px}
+.empty{font-size:12px;color:var(--text2);text-align:center;padding:10px}
+.saverow{display:flex;gap:8px;margin-top:6px}
+.saverow input{flex:1;padding:10px;border-radius:8px;border:1px solid #333;background:var(--btn);color:var(--text);font-size:13px}
 .seg-bar.anim .seg-digit span{animation:segAnim .3s infinite alternate}
 @keyframes segAnim{0%{background:var(--accent)}50%{background:#6e7dff}100%{background:#ff6e7d}}
 .seg-bar.paused .seg-wrap,.seg-bar.paused .big-time{animation:pausePulse 2s ease-in-out infinite}
@@ -544,48 +580,46 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
 </div>
 
 <div class="panel" id="tabata">
-  <div class="card" style="padding:12px 16px">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
-      <div style="flex:1;min-width:120px">
-        <div class="tab-phase" id="tabPhase" style="font-size:15px;padding:6px;margin-bottom:4px">READY</div>
-        <div class="sw-time" id="tabDisp" style="font-size:36px;padding:4px 0">00:20</div>
-        <div class="tab-info" id="tabInfo" style="font-size:12px;margin-top:2px">Interval: - / -</div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        <button class="btn" id="tabToggle" onclick="tabToggle()" style="padding:10px 24px;font-size:14px">Start</button>
-        <button class="btn btn-accent" id="tabBcastBtn" onclick="tabToggle(true)" style="display:none;font-size:11px;padding:6px 12px">All Watches</button>
-        <button class="btn btn-secondary" id="tabReset2" onclick="send({cmd:'tabata',action:'reset'})" style="display:none;padding:8px 20px;font-size:12px">Reset</button>
-      </div>
-    </div>
-    <div id="tabSummary" style="display:none;text-align:center;font-size:13px;color:var(--text2);margin-top:8px;padding-top:8px;border-top:1px solid #222">
-      Work: <strong id="tabSumWork" style="color:var(--work)">20s</strong> &middot;
-      Rest: <strong id="tabSumRest" style="color:var(--rest)">10s</strong> &middot;
-      Intervals: <strong id="tabSumInt" style="color:var(--accent)">8</strong>
+  <div class="card hero">
+    <div class="wname" id="tbWname">CUSTOM WORKOUT</div>
+    <div class="wsum" id="tbWsum"></div>
+    <div class="wtotal" id="tbWtotal"></div>
+    <div class="phase ready" id="tbPhase">READY</div>
+    <div class="htime ready" id="tbHtime">00:20</div>
+    <div class="rinfo" id="tbRinfo">Round 1 of 8</div>
+    <div class="rnext" id="tbRnext">Next: Rest 00:10</div>
+    <button class="btn-start" id="tbStart" onclick="tabToggle()">Start</button>
+    <div class="subrow">
+      <button class="btn-sub" id="tbResetBtn" onclick="send({cmd:'tabata',action:'reset'})" style="display:none">Reset</button>
+      <button class="btn-allw" id="tabBcastBtn" onclick="tabToggle(true)" style="display:none">All&nbsp;Watches</button>
     </div>
   </div>
-  <div class="card" id="tabCfg">
-    <h3>Tabata Settings</h3>
-    <div style="display:flex;gap:24px;justify-content:center;align-items:flex-start;flex-wrap:wrap">
-      <div style="text-align:center"><div style="font-size:11px;color:var(--work);margin-bottom:2px">Work</div><div style="display:flex;gap:2px;align-items:center"><div class="wc-wrap"><div class="wc" id="tabWorkMinW" style="width:44px;height:100px"></div></div><span style="font-size:11px;color:var(--text2)">:</span><div class="wc-wrap"><div class="wc" id="tabWorkSecW" style="width:44px;height:100px"></div></div></div><div style="font-size:10px;color:var(--text2)">min : sec</div><div style="margin-top:4px"><input type="number" id="tabWorkMinN" min="0" max="10" class="numbox" style="width:34px">:<input type="number" id="tabWorkSecN" min="0" max="59" class="numbox" style="width:34px"></div></div>
-      <div style="text-align:center"><div style="font-size:11px;color:var(--rest);margin-bottom:2px">Rest</div><div style="display:flex;gap:2px;align-items:center"><div class="wc-wrap"><div class="wc" id="tabRestMinW" style="width:44px;height:100px"></div></div><span style="font-size:11px;color:var(--text2)">:</span><div class="wc-wrap"><div class="wc" id="tabRestSecW" style="width:44px;height:100px"></div></div></div><div style="font-size:10px;color:var(--text2)">min : sec</div><div style="margin-top:4px"><input type="number" id="tabRestMinN" min="0" max="10" class="numbox" style="width:34px">:<input type="number" id="tabRestSecN" min="0" max="59" class="numbox" style="width:34px"></div></div>
-      <div style="text-align:center"><div style="font-size:11px;color:var(--accent);margin-bottom:2px">Rounds</div><div class="wc-wrap"><div class="wc" id="tabIntW" style="width:44px;height:100px"></div></div><div style="font-size:10px;color:var(--text2)">&nbsp;</div><div style="margin-top:4px"><input type="number" id="tabIntN" min="1" max="20" class="numbox" style="width:44px"></div></div>
+  <div class="card" id="tbSetup">
+    <div class="set-row">
+      <div class="set-label work">WORK</div>
+      <div class="stepper"><button class="step-btn" onclick="tbBump('work',-5)">&minus;5s</button><div class="step-val" id="tbWorkVal" onclick="tbEdit('work')">00:20</div><button class="step-btn" onclick="tbBump('work',5)">+5s</button></div>
+      <div class="chips" id="tbworkChips"></div>
+      <div class="edit-hint">Tap a value to type an exact time</div>
     </div>
-    <div style="display:flex;gap:8px;margin-top:12px;justify-content:center;flex-wrap:wrap">
-      <span style="font-size:12px;color:var(--text2)">Work:</span><select id="tabWC" style="width:auto;padding:4px 8px;font-size:12px;border-radius:6px;border:1px solid #333;background:var(--btn);color:var(--text)"></select>
-      <span style="font-size:12px;color:var(--text2)">Rest:</span><select id="tabRC" style="width:auto;padding:4px 8px;font-size:12px;border-radius:6px;border:1px solid #333;background:var(--btn);color:var(--text)"></select>
+    <div class="set-row">
+      <div class="set-label rest">REST</div>
+      <div class="stepper"><button class="step-btn" onclick="tbBump('rest',-5)">&minus;5s</button><div class="step-val" id="tbRestVal" onclick="tbEdit('rest')">00:10</div><button class="step-btn" onclick="tbBump('rest',5)">+5s</button></div>
+      <div class="chips" id="tbrestChips"></div>
     </div>
-    <div class="btn-row" style="margin-top:12px">
-      <button class="btn btn-primary" style="font-size:13px;padding:10px 20px" onclick="saveTabata()">Save</button>
+    <div class="set-row">
+      <div class="set-label rounds">ROUNDS</div>
+      <div class="stepper"><button class="step-btn" onclick="tbBump('rounds',-1)">&minus;</button><div class="step-val" style="color:var(--accent)" id="tbRoundsVal" onclick="tbEdit('rounds')">8</div><button class="step-btn" onclick="tbBump('rounds',1)">+</button></div>
+      <div class="chips" id="tbroundsChips"></div>
     </div>
-    <div style="margin-top:12px;border-top:1px solid #222;padding-top:10px">
-      <h3 style="font-size:12px;margin-bottom:8px">Presets</h3>
-      <div id="tabPresetList" style="margin-bottom:8px"></div>
-      <select id="tabPresetSel" style="display:none"></select>
-      <div style="display:flex;gap:6px;align-items:center">
-        <input type="text" id="tabPresetName" maxlength="15" placeholder="Preset name" style="flex:1;padding:6px;border-radius:6px;border:1px solid #333;background:var(--btn);color:var(--text);font-size:12px">
-        <button class="btn btn-primary" style="padding:6px 10px;font-size:11px" onclick="saveTabPreset()">Save Preset</button>
-      </div>
+    <div class="colorrow">
+      <span style="font-size:12px;color:var(--work)">Work color</span><select id="tabWC"></select>
+      <span style="font-size:12px;color:var(--rest)">Rest color</span><select id="tabRC"></select>
     </div>
+  </div>
+  <div class="card" id="tbPresets">
+    <h3 style="font-size:13px;letter-spacing:1px;margin:0 0 10px">PRESETS</h3>
+    <div id="tabPresetList"></div>
+    <div class="saverow"><input type="text" id="tabPresetName" maxlength="15" placeholder="Name this workout"><button class="btn-sub" style="flex:0 0 auto;padding:10px 14px" onclick="saveTabPreset()">Save current</button></div>
   </div>
 </div>
 
@@ -816,13 +850,8 @@ function bindNum(wheelId,max){var n=document.getElementById(wheelId.replace(/W$/
 function init(){
   initSegs();
   makeWheel('timerMinW',59);makeWheel('timerSecW',59);
-  makeWheel('tabWorkMinW',10);makeWheel('tabWorkSecW',59);
-  makeWheel('tabRestMinW',10);makeWheel('tabRestSecW',59);
-  makeWheel('tabIntW',20);
   bindNum('timerMinW',59);bindNum('timerSecW',59);
-  bindNum('tabWorkMinW',10);bindNum('tabWorkSecW',59);
-  bindNum('tabRestMinW',10);bindNum('tabRestSecW',59);
-  bindNum('tabIntW',20);
+  tbSetupRender();
   setWheel('timerMinW',1);setWheel('timerSecW',0);
   document.querySelectorAll('.tab').forEach(t=>{
     t.onclick=()=>{
@@ -931,16 +960,7 @@ function updateUI(){var _sy=window.pageYOffset;
     if(prev.tmBt!==tmBt){prev.tmBt=tmBt;const b=document.getElementById('tmToggle');b.textContent=tmBt;b.className=tmBc;}
     if(st.tmRun!==prev.tmRun2){prev.tmRun2=st.tmRun;document.getElementById('timerSetRow').style.display=st.tmRun?'none':'';document.getElementById('tmSetBtn').style.display=st.tmRun?'none':'';}
   }
-  if(st.tabMs!==undefined){
-    const ms=Math.max(0,st.tabMs),s=Math.ceil(ms/1000),m=Math.floor(s/60);
-    var tabTxt=P(m)+':'+P(s%60);if(prev.tabTxt!==tabTxt){prev.tabTxt=tabTxt;document.getElementById('tabDisp').textContent=tabTxt;}
-    var phCls,phTxt;if(st.tabDone){phCls='tab-phase done';phTxt='DONE!';}else if(st.tabRun){phCls=st.tabWork?'tab-phase work':'tab-phase rest';phTxt=st.tabWork?'WORK':'REST';}else{phCls='tab-phase';phTxt='READY';}
-    if(prev.phCls!==phCls){prev.phCls=phCls;const ph=document.getElementById('tabPhase');ph.className=phCls;ph.textContent=phTxt;}
-    var tabInf='Interval: '+st.tabInt+' / '+(st.tabTotal||'?');if(prev.tabInf!==tabInf){prev.tabInf=tabInf;document.getElementById('tabInfo').textContent=tabInf;}
-    var bTxt,bCls;if(st.tabRun){bTxt='Stop';bCls='btn btn-danger';}else{bTxt='Start';bCls='btn btn-primary';}
-    if(prev.tabBtn!==bTxt){prev.tabBtn=bTxt;const b=document.getElementById('tabToggle');b.textContent=bTxt;b.className=bCls;}
-    if(st.tabRun!==prev.tabRun||st.tabDone!==prev.tabDone){prev.tabRun=st.tabRun;prev.tabDone=st.tabDone;document.getElementById('tabReset2').style.display=(!st.tabRun&&(st.tabMs>0||st.tabDone))?'':'none';document.getElementById('tabCfg').style.display=st.tabRun?'none':'';}
-  }
+  if(st.tabMs!==undefined){tbRenderLive();}
   if(st.tz!==undefined&&st.full)document.getElementById('tzSelect').value=st.tz;
   if(st.dst!==undefined&&st.full){document.querySelector('input[name=dst][value="'+st.dst+'"]').checked=true;document.getElementById('dstRules').style.display=st.dst==1?'':'none';}
   if(st.dsFL!==undefined&&st.full){
@@ -949,18 +969,11 @@ function updateUI(){var _sy=window.pageYOffset;
     document.getElementById('deFL').value=st.deFL?'1':'0';document.getElementById('deDow').value=st.deDow;
     document.getElementById('deMon').value=st.deMon;document.getElementById('deHour').value=st.deH;
   }
-  if(st.tbWork!==undefined&&!wheelsInit){
-    wheelsInit=true;
-    setWheel('tabWorkMinW',Math.floor(st.tbWork/60));setWheel('tabWorkSecW',st.tbWork%60);
-    setWheel('tabRestMinW',Math.floor(st.tbRest/60));setWheel('tabRestSecW',st.tbRest%60);
-    setWheel('tabIntW',st.tbInt2);document.getElementById('tabWC').value=st.tbWC;document.getElementById('tabRC').value=st.tbRC;
-  }
-  if(st.tbWork!==undefined){
-    function fmtDur(s){return s>=60?(Math.floor(s/60)+'m'+((s%60)?((s%60)+'s'):'')):(s+'s');}
-    document.getElementById('tabSumWork').textContent=fmtDur(st.tbWork);
-    document.getElementById('tabSumRest').textContent=fmtDur(st.tbRest);
-    document.getElementById('tabSumInt').textContent=st.tbInt2;
-    var tsv=(st.tabRun||st.tabDone)?'block':'none';if(prev.tsv!==tsv){prev.tsv=tsv;document.getElementById('tabSummary').style.display=tsv;}
+  if(st.tbWork!==undefined&&!tbSynced){
+    tbSynced=true;
+    TB.work=st.tbWork;TB.rest=st.tbRest;TB.rounds=st.tbInt2;
+    document.getElementById('tabWC').value=st.tbWC;document.getElementById('tabRC').value=st.tbRC;
+    tbSetupRender();if(!st.tabRun)tbPreviewIdle();
   }
   if(st.animTr!==undefined&&st.full){document.getElementById('animToggle').checked=st.animTr;}
   if(st.clrMode!==undefined&&st.full){var r2=document.querySelector('input[name=clrMode][value="'+st.clrMode+'"]');if(r2)r2.checked=true;}
@@ -991,7 +1004,7 @@ function updateUI(){var _sy=window.pageYOffset;
   if(st.bdSpd!==undefined&&st.full){var s=document.getElementById('bdaySpd');if(s)s.value=st.bdSpd;}
   if(st.bdBuzz!==undefined&&st.full)document.getElementById('bdayBuzz').checked=st.bdBuzz;
   if(st.bdays){var bl=document.getElementById('bdayList');bl.innerHTML='';st.bdays.forEach(function(b,i){bl.innerHTML+='<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:13px"><span>'+b.n+' - '+P(b.d)+'/'+P(b.m)+'</span><button class="btn btn-danger" style="padding:4px 10px;font-size:11px" onclick="delBday('+i+')">X</button></div>';});}
-  if(st.tabPresets){var sel=document.getElementById('tabPresetSel');sel.innerHTML='';var pl=document.getElementById('tabPresetList');pl.innerHTML='';st.tabPresets.forEach(function(p,i){if(p.n){var o=document.createElement('option');o.value=i;o.textContent=p.n;sel.appendChild(o);pl.innerHTML+='<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-bottom:4px;background:rgba(255,255,255,.03);border-radius:8px;font-size:13px"><span style="color:var(--text)">'+p.n+' <span style="color:var(--text2);font-size:11px">'+p.w+'s / '+p.r+'s / '+p.i+'r</span></span><span style="display:flex;gap:4px"><button class="btn btn-secondary" style="padding:4px 10px;font-size:11px" onclick="loadTabPresetIdx('+i+')">Load</button><button class="btn btn-danger" style="padding:4px 8px;font-size:11px" onclick="delTabPresetIdx('+i+')">X</button></span></div>';}});if(!pl.innerHTML)pl.innerHTML='<div style="font-size:12px;color:var(--text2);padding:4px">No presets saved</div>';}
+  if(st.tabPresets){tbRenderPresets();}
   if(st.nsEn!==undefined&&st.full){
     document.getElementById('nsToggle').checked=st.nsEn;
     document.getElementById('nsStart').value=st.nsStart;
@@ -1018,12 +1031,35 @@ function tmToggle(bc){
   else if(st.tmMs>0&&!st.tmDone) send({cmd:'timer',action:'start',broadcast:!!bc});
   else send({cmd:'timer',action:'start',duration:(getWheel('timerMinW')*60+getWheel('timerSecW'))*1000,broadcast:!!bc});
 }
-function tabToggle(bc){
-  if(st.tabRun) send({cmd:'tabata',action:'stop'});
-  else send({cmd:'tabata',action:'start',broadcast:!!bc});
+// ---- Tabata (recipe-style UI) ----
+var TB={work:20,rest:10,rounds:8},tbSynced=false,tbEditing=false;
+var TBCH={work:[20,30,40,45],rest:[10,15,20,30],rounds:[4,6,8,10]};
+var TBPEN=' <span class="edih">&#9998;</span>';
+function tbFmt(s){return P(Math.floor(s/60))+':'+P(s%60);}
+function tbTotal(){return (TB.work+TB.rest)*TB.rounds;}
+function tbClamp(k,v){if(isNaN(v))return TB[k];if(k==='rounds')return Math.max(1,Math.min(99,Math.round(v)));if(k==='rest')return Math.max(0,Math.min(3599,Math.round(v)));return Math.max(1,Math.min(3599,Math.round(v)));}
+function tbChips(){['work','rest','rounds'].forEach(function(k){var el=document.getElementById('tb'+k+'Chips');if(!el)return;el.innerHTML=TBCH[k].map(function(v){return '<button class="chip'+(TB[k]===v?' sel':'')+'" onclick="tbSet(\''+k+'\','+v+')">'+(k==='rounds'?v:v+'s')+'</button>';}).join('');});}
+function tbVals(){if(tbEditing)return;document.getElementById('tbWorkVal').innerHTML=tbFmt(TB.work)+TBPEN;document.getElementById('tbRestVal').innerHTML=tbFmt(TB.rest)+TBPEN;document.getElementById('tbRoundsVal').innerHTML=TB.rounds+TBPEN;}
+function tbSummary(){document.getElementById('tbWsum').textContent=TB.work+'s Work · '+TB.rest+'s Rest';document.getElementById('tbWtotal').textContent=TB.rounds+' Rounds · Total '+tbFmt(tbTotal());}
+function tbSetupRender(){tbChips();tbVals();tbSummary();}
+function tbPreviewIdle(){document.getElementById('tbPhase').className='phase ready';document.getElementById('tbPhase').textContent='READY';document.getElementById('tbHtime').className='htime ready';document.getElementById('tbHtime').textContent=tbFmt(TB.work);document.getElementById('tbRinfo').textContent='Round 1 of '+TB.rounds;document.getElementById('tbRnext').textContent='Next: Rest '+tbFmt(TB.rest);}
+function tbSet(k,v){TB[k]=tbClamp(k,v);tbSetupRender();if(!st.tabRun)tbPreviewIdle();}
+function tbBump(k,d){tbSet(k,TB[k]+d);}
+function tbParse(k,str){str=(''+str).trim();if(k==='rounds')return tbClamp('rounds',parseInt(str,10));var sec;if(str.indexOf(':')>=0){var p=str.split(':');sec=(parseInt(p[0],10)||0)*60+(parseInt(p[1],10)||0);}else sec=parseInt(str,10);return tbClamp(k,sec);}
+function tbEdit(k){if(st.tabRun)return;var map={work:'tbWorkVal',rest:'tbRestVal',rounds:'tbRoundsVal'};var el=document.getElementById(map[k]);if(el.querySelector('input'))return;tbEditing=true;var cur=(k==='rounds')?TB.rounds:tbFmt(TB[k]);el.innerHTML='';var inp=document.createElement('input');inp.className='editbox';inp.value=cur;inp.setAttribute('inputmode',k==='rounds'?'numeric':'text');el.appendChild(inp);inp.focus();inp.select();var done=false;function commit(){if(done)return;done=true;tbEditing=false;tbSet(k,tbParse(k,inp.value));}inp.addEventListener('blur',commit);inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();commit();}else if(e.key==='Escape'){done=true;tbEditing=false;tbVals();}});}
+function tbApplyCfg(){send({cmd:'tabata_cfg',work:TB.work,rest:TB.rest,intervals:TB.rounds,workColor:+document.getElementById('tabWC').value,restColor:+document.getElementById('tabRC').value});}
+function tabToggle(bc){if(st.tabRun){send({cmd:'tabata',action:'stop'});return;}tbApplyCfg();send({cmd:'tabata',action:'start',broadcast:!!bc});}
+function tbRenderLive(){
+  var b=document.getElementById('tbStart');if(st.tabRun){b.textContent='Stop';b.classList.add('stop');}else{b.textContent='Start';b.classList.remove('stop');}
+  if(st.tabDone){document.getElementById('tbPhase').className='phase done';document.getElementById('tbPhase').textContent='DONE!';document.getElementById('tbHtime').className='htime ready';document.getElementById('tbHtime').textContent='00:00';document.getElementById('tbRinfo').textContent='Round '+st.tabInt+' of '+(st.tabTotal||TB.rounds);document.getElementById('tbRnext').textContent='';}
+  else if(st.tabRun){var s=Math.ceil(Math.max(0,st.tabMs)/1000),w=st.tabWork;document.getElementById('tbPhase').className='phase '+(w?'work':'rest');document.getElementById('tbPhase').textContent=w?'WORK':'REST';document.getElementById('tbHtime').className='htime '+(w?'work':'rest');document.getElementById('tbHtime').textContent=tbFmt(s);document.getElementById('tbRinfo').textContent='Round '+st.tabInt+' of '+(st.tabTotal||TB.rounds);document.getElementById('tbRnext').textContent='Next: '+(w?('Rest '+tbFmt(TB.rest)):('Work '+tbFmt(TB.work)));}
+  else{tbPreviewIdle();}
+  var dn=st.tabRun?'none':'';document.getElementById('tbSetup').style.display=dn;document.getElementById('tbPresets').style.display=dn;
+  document.getElementById('tbResetBtn').style.display=(!st.tabRun&&(st.tabMs>0||st.tabDone))?'':'none';
 }
-
-function saveTabata(){var ws=getWheel('tabWorkMinW')*60+getWheel('tabWorkSecW'),rs=getWheel('tabRestMinW')*60+getWheel('tabRestSecW');send({cmd:'tabata_cfg',work:ws||20,rest:rs||10,intervals:getWheel('tabIntW')||8,workColor:+document.getElementById('tabWC').value,restColor:+document.getElementById('tabRC').value});}
+function tbRenderPresets(){var pl=document.getElementById('tabPresetList');if(!pl)return;var arr=(st.tabPresets||[]).filter(function(p){return p.n;});if(!arr.length){pl.innerHTML='<div class="empty">No saved workouts yet — set one up and tap “Save current”.</div>';return;}pl.innerHTML=st.tabPresets.map(function(p,i){if(!p.n)return '';return '<div class="preset" onclick="tbLoadPreset('+i+')"><div><div class="pn">'+p.n+'</div><div class="pd">'+p.w+'s work · '+p.r+'s rest · '+p.i+' rounds · '+tbFmt((p.w+p.r)*p.i)+'</div></div><button class="pdel" onclick="event.stopPropagation();tbDelPreset('+i+')">&times;</button></div>';}).join('');}
+function tbLoadPreset(i){var p=st.tabPresets[i];if(!p)return;TB.work=p.w;TB.rest=p.r;TB.rounds=p.i;document.getElementById('tbWname').textContent=p.n.toUpperCase();tbSetupRender();if(!st.tabRun)tbPreviewIdle();}
+function tbDelPreset(i){sendSave({cmd:'tab_preset_del',index:i});}
 function toggleAnim(){send({cmd:'animtoggle',value:document.getElementById('animToggle').checked});}
 function setTimezone(){sendSave({cmd:'timezone',value:+document.getElementById('tzSelect').value});}
 function setDST(v){sendSave({cmd:'dst',value:v});}
@@ -1047,11 +1083,7 @@ function saveDevName(){var v=document.getElementById('devName').value.trim();if(
 function syncAll(){if(confirm('Copy this watch\'s settings to all other watches on the network?'))send({cmd:'synccfg'});}
 function showToast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(window._tt);window._tt=setTimeout(function(){t.classList.remove('show');t.textContent='Saving...';},2500);}
 function delBday(i){sendSave({cmd:'bday_del',index:i});}
-function loadTabPreset(){sendSave({cmd:'tab_preset_load',index:+document.getElementById('tabPresetSel').value});}
-function saveTabPreset(){var n=document.getElementById('tabPresetName').value;if(!n)return;var ws=getWheel('tabWorkMinW')*60+getWheel('tabWorkSecW'),rs=getWheel('tabRestMinW')*60+getWheel('tabRestSecW');sendSave({cmd:'tab_preset_save',name:n,work:ws||20,rest:rs||10,intervals:getWheel('tabIntW')||8});}
-function delTabPreset(){var i=+document.getElementById('tabPresetSel').value;sendSave({cmd:'tab_preset_del',index:i});}
-function loadTabPresetIdx(i){sendSave({cmd:'tab_preset_load',index:i});}
-function delTabPresetIdx(i){sendSave({cmd:'tab_preset_del',index:i});}
+function saveTabPreset(){var n=document.getElementById('tabPresetName').value.trim();if(!n)return;sendSave({cmd:'tab_preset_save',name:n,work:TB.work,rest:TB.rest,intervals:TB.rounds});document.getElementById('tabPresetName').value='';}
 function startOTA(){
   var pass=document.getElementById('otaPass').value;
   if(pass!=='neotick2024'){alert('Wrong password');return;}
