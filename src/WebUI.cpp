@@ -551,6 +551,17 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
       <span class="wifi-badge"><span class="dot" id="wifiDot"></span><span id="wifiText">WiFi</span></span>
     </div>
   </div>
+  <div class="sec-hdr" id="helpHdr" onclick="togSec(this)"><h3>How to use</h3><span class="arr">&#9660;</span></div>
+  <div class="sec-body">
+    <ol style="margin:0;padding-left:18px;font-size:13px;line-height:1.8;color:var(--text2)">
+      <li>If you have more than one clock, <b style="color:var(--text)">pick one</b> from the list above.</li>
+      <li><b style="color:var(--text)">Choose a mode</b> &mdash; Timer or Tabata &mdash; from the tabs at the top.</li>
+      <li><b style="color:var(--text)">Set the time</b> with the &minus;/+ buttons or tap the number to type it, then press <b style="color:var(--accent)">Start</b>.</li>
+      <li>With several clocks, <b style="color:var(--text)">All&nbsp;Watches</b> runs the same workout on all of them at once.</li>
+      <li><b style="color:var(--text)">Color, brightness and the clock&rsquo;s name</b> are under the <b>Settings</b> tab.</li>
+      <li>This page (<b style="color:var(--accent)">neotick.local</b>) always lists every clock on the network.</li>
+    </ol>
+  </div>
   <div class="card">
     <h3>Display Format</h3>
     <div class="toggle-row">
@@ -665,6 +676,7 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
 </div>
 
 <div class="panel" id="settings">
+  <div class="sec-hdr" onclick="showHelp()"><h3>How to use</h3><span class="arr">&#8250;</span></div>
   <div class="sec-hdr" onclick="togSec(this)"><h3>Color &amp; Brightness</h3><span class="arr">&#9660;</span></div>
   <div class="sec-body">
     <div class="colors" id="colorGrid"></div>
@@ -873,6 +885,8 @@ function init(){
   initSegs();
   tdSetup();
   tbSetupRender();
+  // Auto-open the "How to use" help on a first visit; stays collapsed afterwards.
+  try{if(!localStorage.getItem('ntHelpSeen')){var hh=document.getElementById('helpHdr');if(hh){hh.classList.add('open');hh.nextElementSibling.classList.add('show');}localStorage.setItem('ntHelpSeen','1');}}catch(e){}
   document.querySelectorAll('.tab').forEach(t=>{
     t.onclick=()=>{
       const dest=t.dataset.tab;
@@ -922,6 +936,8 @@ function connectWS(){
 function send(o){if(ws&&ws.readyState===1)ws.send(JSON.stringify(o));}
 function sendSave(o){saving=true;document.getElementById('toast').classList.add('show');send(o);}
 function togSec(el){el.classList.toggle('open');el.nextElementSibling.classList.toggle('show');}
+// Settings "How to use" jumps to the single help block on the Clock tab (no duplicate content).
+function showHelp(){var t=document.querySelector('.tab[data-tab="clock"]');if(t)t.click();var h=document.getElementById('helpHdr');if(h&&!h.classList.contains('open')){h.classList.add('open');h.nextElementSibling.classList.add('show');}window.scrollTo(0,0);}
 function P(n){return String(n).padStart(2,'0');}
 function updateUI(){var _sy=window.pageYOffset;
   if(firstState&&st.mode!==undefined){
