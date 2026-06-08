@@ -56,6 +56,9 @@ public:
     // true if another watch on the network reports the same name (mDNS collision risk).
     bool hasNameConflict() const;
 
+    // true if this clock currently owns the well-known neotick.local entry point.
+    bool isGateway() const { return m_isGateway; }
+
     // Reduce a user-entered name to a DNS-safe label: lowercase, only [a-z0-9-].
     static String sanitizeName(const String& in);
 
@@ -96,6 +99,9 @@ private:
     void evictStalePeers();
     void registerMdns();
     void loadDeviceName();
+    void updateGateway();   // elect lowest-MAC clock to own neotick.local; claim/release it
+
+    bool m_isGateway = false;
 };
 
 #endif // HEARTBEAT_H

@@ -37,6 +37,9 @@
 
 // === Heartbeat / Peer Discovery ===
 #define MDNS_SERVICE_NAME    "neotick"
+// Well-known universal entry point: one elected clock (lowest MAC) also answers this
+// name so an instructor can always reach the clock list at http://neotick.local
+#define GATEWAY_MDNS_NAME    "neotick"
 #define MULTICAST_IP         "239.1.2.3"
 #define MULTICAST_PORT       9999
 #define HEARTBEAT_INTERVAL   2000    // ms

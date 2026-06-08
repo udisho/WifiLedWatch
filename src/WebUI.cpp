@@ -542,6 +542,10 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
 <div class="seg-bar"><div class="seg-wrap" id="segDisp"><div class="seg-digit" id="sd0"></div><div class="seg-digit" id="sd1"></div><div class="seg-colon"><i></i><i></i></div><div class="seg-digit" id="sd2"></div><div class="seg-digit" id="sd3"></div></div></div>
 
 <div class="panel active" id="clock">
+  <div class="card" id="clockPicker" style="display:none">
+    <h3 style="font-size:13px;letter-spacing:1px;margin:0 0 10px">CLOCKS ON THIS NETWORK</h3>
+    <div id="pickerList"></div>
+  </div>
   <div class="card">
     <div class="status"><span class="dot" id="syncDot"></span><span id="syncText">Syncing...</span>
       <span class="wifi-badge"><span class="dot" id="wifiDot"></span><span id="wifiText">WiFi</span></span>
@@ -1009,6 +1013,7 @@ function updateUI(){var _sy=window.pageYOffset;
   if(st.bdBuzz!==undefined&&st.full)document.getElementById('bdayBuzz').checked=st.bdBuzz;
   if(st.bdays){var bl=document.getElementById('bdayList');bl.innerHTML='';st.bdays.forEach(function(b,i){bl.innerHTML+='<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:13px"><span>'+b.n+' - '+P(b.d)+'/'+P(b.m)+'</span><button class="btn btn-danger" style="padding:4px 10px;font-size:11px" onclick="delBday('+i+')">X</button></div>';});}
   if(st.tabPresets){tbRenderPresets();}
+  if(st.peerList!==undefined){renderPicker();}
   if(st.nsEn!==undefined&&st.full){
     document.getElementById('nsToggle').checked=st.nsEn;
     document.getElementById('nsStart').value=st.nsStart;
@@ -1094,6 +1099,11 @@ function tbRenderLive(){
 function tbRenderPresets(){var pl=document.getElementById('tabPresetList');if(!pl)return;var arr=(st.tabPresets||[]).filter(function(p){return p.n;});if(!arr.length){pl.innerHTML='<div class="empty">No saved workouts yet — set one up and tap “Save current”.</div>';return;}pl.innerHTML=st.tabPresets.map(function(p,i){if(!p.n)return '';return '<div class="preset" onclick="tbLoadPreset('+i+')"><div><div class="pn">'+p.n+'</div><div class="pd">'+p.w+'s work · '+p.r+'s rest · '+p.i+' rounds · '+tbFmt((p.w+p.r)*p.i)+'</div></div><button class="pdel" onclick="event.stopPropagation();tbDelPreset('+i+')">&times;</button></div>';}).join('');}
 function tbLoadPreset(i){var p=st.tabPresets[i];if(!p)return;TB.work=p.w;TB.rest=p.r;TB.rounds=p.i;document.getElementById('tbWname').textContent=p.n.toUpperCase();tbSetupRender();if(!st.tabRun)tbPreviewIdle();}
 function tbDelPreset(i){sendSave({cmd:'tab_preset_del',index:i});}
+// Dedicated clock picker (the universal landing): this clock + all peers, tap to open one.
+function renderPicker(){var card=document.getElementById('clockPicker'),list=document.getElementById('pickerList');if(!card)return;var peers=st.peerList||[];if(!peers.length){card.style.display='none';return;}card.style.display='';
+  var html='<div class="preset" style="cursor:default;border-color:var(--accent)"><div><div class="pn">'+(st.devName||'This clock')+'</div><div class="pd">you are here</div></div></div>';
+  html+=peers.map(function(p){var nm=(p.n||p.ip);return '<div class="preset" onclick="location.href=\'http://'+p.ip+'/\'"><div><div class="pn">'+nm+'</div><div class="pd">'+p.ip+'</div></div><div style="color:var(--accent);font-size:22px">&rsaquo;</div></div>';}).join('');
+  list.innerHTML=html;}
 function toggleAnim(){send({cmd:'animtoggle',value:document.getElementById('animToggle').checked});}
 function setTimezone(){sendSave({cmd:'timezone',value:+document.getElementById('tzSelect').value});}
 function setDST(v){sendSave({cmd:'dst',value:v});}

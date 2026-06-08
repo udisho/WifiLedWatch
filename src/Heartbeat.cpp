@@ -25,6 +25,7 @@ void Heartbeat::update() {
         m_lastHeartbeat = now;
         sendHeartbeat();
         evictStalePeers();
+        updateGateway();   // claim/release the well-known neotick.local entry point
     }
 
     // Receive incoming messages
@@ -207,6 +208,32 @@ void Heartbeat::registerMdns() {
         MDNS.addService(MDNS_SERVICE_NAME, "tcp", 80);
         m_mdnsRegistered = true;
         Serial.printf("[heartbeat] mDNS registered: %s.local\n", host.c_str());
+    }
+    // mDNS was (re)started, so any delegated gateway name is gone — re-claim next cycle.
+    m_isGateway = false;
+}
+
+// Elect the lowest-MAC clock as the gateway that also answers the well-known
+// neotick.local, giving instructors one fixed entry point to the clock list.
+void Heartbeat::updateGateway() {
+    if (!m_mdnsRegistered) return;
+    bool lowest = true;
+    for (int i = 0; i < m_peerCount; i++) {
+        if (memcmp(m_peers[i].mac, m_myMac, 6) < 0) { lowest = false; break; }
+    }
+    if (lowest && !m_isGateway) {
+        mdns_ip_addr_t ip = {};
+        ip.addr.type = ESP_IPADDR_TYPE_V4;
+        ip.addr.u_addr.ip4.addr = (uint32_t)WiFi.localIP();
+        ip.next = nullptr;
+        if (mdns_delegate_hostname_add(GATEWAY_MDNS_NAME, &ip) == ESP_OK) {
+            m_isGateway = true;
+            Serial.printf("[heartbeat] gateway: now answering %s.local\n", GATEWAY_MDNS_NAME);
+        }
+    } else if (!lowest && m_isGateway) {
+        mdns_delegate_hostname_remove(GATEWAY_MDNS_NAME);
+        m_isGateway = false;
+        Serial.println("[heartbeat] gateway: released neotick.local");
     }
 }
 
