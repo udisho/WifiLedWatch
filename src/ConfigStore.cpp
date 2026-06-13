@@ -51,6 +51,8 @@ void ConfigStore::load(WatchSettings& s) {
     s.clockworkBuzzer   = prefs.getBool("cwBuzz", false);
 
     s.pomodoroIntervals   = prefs.getUChar("pomInt", POMODORO_INTERVALS);
+    s.pomWorkSec          = prefs.getUShort("pomW", POMODORO_WORK_SEC);
+    s.pomBreakSec         = prefs.getUShort("pomB", POMODORO_BREAK_SEC);
     s.colorMode           = prefs.getUChar("clrMode", 0);
     s.birthdayCount        = prefs.getUChar("bdCnt", 0);
     s.birthdayIntervalMins = prefs.getUChar("bdIntv", 60);
@@ -108,6 +110,8 @@ void ConfigStore::save(const WatchSettings& s) {
     prefs.putBool("cwBuzz", s.clockworkBuzzer);
 
     prefs.putUChar("pomInt", s.pomodoroIntervals);
+    prefs.putUShort("pomW", s.pomWorkSec);
+    prefs.putUShort("pomB", s.pomBreakSec);
     prefs.putUChar("clrMode", s.colorMode);
     prefs.putUChar("bdCnt", s.birthdayCount);
     prefs.putUChar("bdIntv", s.birthdayIntervalMins);

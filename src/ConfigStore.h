@@ -51,8 +51,10 @@ struct WatchSettings {
     uint8_t buzzerLevel = 0;
     bool clockworkBuzzer = false;  // chime on the hour
 
-    // Pomodoro intervals
+    // Pomodoro intervals + durations
     uint8_t pomodoroIntervals = POMODORO_INTERVALS;
+    uint16_t pomWorkSec  = POMODORO_WORK_SEC;   // focus
+    uint16_t pomBreakSec = POMODORO_BREAK_SEC;  // break
     // Color mode: 0=static, 1=rainbow, 2=crazy, 3=pulse
     uint8_t colorMode = 0;
     // Birthday count (actual data in NVS)

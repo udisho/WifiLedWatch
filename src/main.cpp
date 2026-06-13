@@ -633,7 +633,7 @@ void loop() {
                     showAndMirror((s / 60 > 99) ? 9999 : ((int)(s / 60) * 100 + (int)(s % 60)));
                 } else {
                     ledDisplay.clearOverrideColor();
-                    showAndMirror((POMODORO_WORK_SEC / 60) * 100 + (POMODORO_WORK_SEC % 60));
+                    showAndMirror((settings.pomWorkSec / 60) * 100 + (settings.pomWorkSec % 60));
                     if (isPaused) { ledDisplay.pulseBrightness(); }
                 }
             }

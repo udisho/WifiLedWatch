@@ -470,9 +470,9 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
 .wsum{font-size:13px;margin-top:2px}
 .wtotal{font-size:12px;color:var(--accent);margin-top:2px}
 .phase{font-size:15px;font-weight:800;letter-spacing:2px;margin:14px 0 2px}
-.phase.ready{color:var(--text2)}.phase.work{color:var(--work)}.phase.rest{color:var(--rest)}.phase.done{color:var(--accent)}.phase.run{color:var(--accent)}
+.phase.ready{color:var(--text2)}.phase.work{color:var(--work)}.phase.rest{color:var(--rest)}.phase.done{color:var(--accent)}.phase.run{color:var(--accent)}.phase.brk{color:var(--accent2)}
 .htime{font-size:64px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;margin:2px 0}
-.htime.work{color:var(--work)}.htime.rest{color:var(--rest)}.htime.ready{color:var(--text)}.htime.run{color:var(--accent)}
+.htime.work{color:var(--work)}.htime.rest{color:var(--rest)}.htime.ready{color:var(--text)}.htime.run{color:var(--accent)}.htime.brk{color:var(--accent2)}
 .rinfo{font-size:13px;color:var(--text2)}
 .rnext{font-size:12px;color:var(--text2);margin-top:2px;opacity:.85;min-height:14px}
 .btn-start{display:block;width:100%;margin-top:16px;padding:18px;font-size:20px;letter-spacing:1px;background:var(--accent);color:#001014;border-radius:14px;border:none;font-weight:700;cursor:pointer}
@@ -658,20 +658,36 @@ select{width:100%;padding:12px;border-radius:10px;border:1px solid #333;backgrou
 
 
 <div class="panel" id="pomodoro">
-  <div class="card">
-    <div class="tab-phase" id="pomPhase">READY</div>
-    <div class="sw-time" id="pomDisp">25:00</div>
-    <div class="tab-info" id="pomInfo">Interval: 1 / 4</div>
-    <div class="btn-row">
-      <button class="btn" id="pomToggle" onclick="pomToggle()">Start</button>
-      <button class="btn btn-accent" id="pomBcastBtn" onclick="pomToggle(true)" style="display:none;font-size:11px;padding:8px 12px">All Watches</button>
-      <button class="btn btn-secondary" id="pomReset2" onclick="send({cmd:'pom',action:'reset'})" style="display:none">Reset</button>
+  <div class="card hero">
+    <div class="wsum" id="pomWsum"></div>
+    <div class="wtotal" id="pomWtotal"></div>
+    <div class="phase ready" id="pomPhase">READY</div>
+    <div class="htime ready" id="pomHtime">25:00</div>
+    <div class="rinfo" id="pomRinfo">Round 1 of 4</div>
+    <div class="rnext" id="pomRnext">Next: Break 05:00</div>
+    <button class="btn-start" id="pomStart" onclick="pomPrimary()">Start</button>
+    <div class="subrow">
+      <button class="btn-sub" id="pomResetBtn" onclick="send({cmd:'pom',action:'reset'})" style="display:none">Reset</button>
+      <button class="btn-allw" id="pomSec" onclick="pomSecondary()" style="display:none">This Watch</button>
     </div>
   </div>
-  <div class="card">
-    <h3>Pomodoro Settings</h3>
-    <div class="slider-row"><label>Intervals</label><input type="range" id="pomIntSlider" min="1" max="8" value="4"><input type="number" id="pomIntN" min="1" max="8" class="numbox" style="width:44px" oninput="var v=Math.min(8,Math.max(1,+this.value||1));document.getElementById('pomIntSlider').value=v;document.getElementById('pomIntVal').textContent=v;"><span class="val" id="pomIntVal">4</span></div>
-    <div class="btn-row" style="margin-top:10px"><button class="btn btn-primary" onclick="savePomInt()">Save</button></div>
+  <div class="card" id="pomSetup">
+    <div class="set-row">
+      <div class="set-label work">FOCUS</div>
+      <div class="stepper"><button class="step-btn" onclick="pbBump('work',-300)">&minus;5m</button><div class="step-val" id="pbWorkVal" onclick="pbEdit('work')">25:00</div><button class="step-btn" onclick="pbBump('work',300)">+5m</button></div>
+      <div class="chips" id="pbworkChips"></div>
+      <div class="edit-hint">Tap a value to type minutes (or mm:ss)</div>
+    </div>
+    <div class="set-row">
+      <div class="set-label" style="color:var(--accent2)">BREAK</div>
+      <div class="stepper"><button class="step-btn" onclick="pbBump('brk',-60)">&minus;1m</button><div class="step-val" id="pbBrkVal" onclick="pbEdit('brk')">05:00</div><button class="step-btn" onclick="pbBump('brk',60)">+1m</button></div>
+      <div class="chips" id="pbbrkChips"></div>
+    </div>
+    <div class="set-row">
+      <div class="set-label rounds">ROUNDS</div>
+      <div class="stepper"><button class="step-btn" onclick="pbBump('rounds',-1)">&minus;</button><div class="step-val" style="color:var(--accent)" id="pbRoundsVal" onclick="pbEdit('rounds')">4</div><button class="step-btn" onclick="pbBump('rounds',1)">+</button></div>
+      <div class="chips" id="pbroundsChips"></div>
+    </div>
   </div>
 </div>
 
@@ -885,6 +901,7 @@ function init(){
   initSegs();
   tdSetup();
   tbSetupRender();
+  pbSetupRender();
   // Auto-open the "How to use" help on a first visit; stays collapsed afterwards.
   try{if(!localStorage.getItem('ntHelpSeen')){var hh=document.getElementById('helpHdr');if(hh){hh.classList.add('open');hh.nextElementSibling.classList.add('show');}localStorage.setItem('ntHelpSeen','1');}}catch(e){}
   document.querySelectorAll('.tab').forEach(t=>{
@@ -921,7 +938,6 @@ function init(){
   ['nsStart','nsEnd'].forEach(id=>{const s=document.getElementById(id);for(let i=0;i<24;i++){const o=document.createElement('option');o.value=i;o.textContent=P(i)+':00';s.appendChild(o);}});
   document.getElementById('nsStart').value=22;document.getElementById('nsEnd').value=7;
   document.getElementById('nsBright').oninput=function(){document.getElementById('nsBrightVal').textContent=this.value;};
-  document.getElementById('pomIntSlider').oninput=function(){document.getElementById('pomIntVal').textContent=this.value;var pn=document.getElementById('pomIntN');if(pn)pn.value=this.value;};
   document.getElementById('dateIntSlider').oninput=function(){document.getElementById('dateIntVal').textContent=this.value;};
   initCities();
   connectWS();
@@ -1001,17 +1017,8 @@ function updateUI(){var _sy=window.pageYOffset;
   }
   if(st.animTr!==undefined&&st.full){document.getElementById('animToggle').checked=st.animTr;}
   if(st.clrMode!==undefined&&st.full){var r2=document.querySelector('input[name=clrMode][value="'+st.clrMode+'"]');if(r2)r2.checked=true;}
-  if(st.pomMs!==undefined){
-    var ms=Math.max(0,st.pomMs),s=Math.ceil(ms/1000),m=Math.floor(s/60);
-    var pomTxt=P(m)+':'+P(s%60);if(prev.pomTxt!==pomTxt){prev.pomTxt=pomTxt;document.getElementById('pomDisp').textContent=pomTxt;}
-    var ppCls,ppTxt;if(st.pomDone){ppCls='tab-phase done';ppTxt='DONE!';}else if(st.pomRun){ppCls=st.pomWork?'tab-phase work':'tab-phase rest';ppTxt=st.pomWork?'FOCUS':'BREAK';}else{ppCls='tab-phase';ppTxt='READY';}
-    if(prev.ppCls!==ppCls){prev.ppCls=ppCls;var ph=document.getElementById('pomPhase');ph.className=ppCls;ph.textContent=ppTxt;}
-    var pomInf='Interval: '+st.pomInt+' / '+(st.pomTotal||4);if(prev.pomInf!==pomInf){prev.pomInf=pomInf;document.getElementById('pomInfo').textContent=pomInf;}
-    var pBt;if(st.pomRun){pBt='Stop';}else{pBt='Start';}
-    if(prev.pBt!==pBt){prev.pBt=pBt;var b=document.getElementById('pomToggle');b.textContent=pBt;b.className=st.pomRun?'btn btn-danger':'btn btn-primary';}
-    if(st.pomRun!==prev.pomRun||st.pomDone!==prev.pomDone){prev.pomRun=st.pomRun;prev.pomDone=st.pomDone;document.getElementById('pomReset2').style.display=(!st.pomRun&&(st.pomMs>0||st.pomDone))?'':'none';}
-  }
-  if(st.pomTotal!==undefined&&st.full){document.getElementById('pomIntSlider').value=st.pomTotal;document.getElementById('pomIntVal').textContent=st.pomTotal;var pn=document.getElementById('pomIntN');if(pn&&document.activeElement!==pn)pn.value=st.pomTotal;}
+  if(st.pomMs!==undefined){pomRenderLive();}
+  if(st.pomWSec!==undefined&&!pbSynced){pbSynced=true;PB.work=st.pomWSec;PB.brk=st.pomBSec;PB.rounds=st.pomTotal;pbSetupRender();if(!st.pomRun)pbPreviewIdle();}
   if(st.dateEn!==undefined&&st.full){document.getElementById('dateToggle').checked=st.dateEn;document.getElementById('dateIntSlider').value=st.dateInt||30;document.getElementById('dateIntVal').textContent=st.dateInt||30;document.getElementById('tempToggle').checked=st.tempEn;var tr=document.querySelector('input[name=tempType][value="'+(st.tempFL?'1':'0')+'"]');if(tr)tr.checked=true;document.getElementById('tempClrToggle').checked=st.tempClr;}
   if(st.curTemp!==undefined){var el=document.getElementById('tempReadout');var txt='';if(st.curTemp!==null){txt=st.curTemp.toFixed(1)+'°C actual | '+st.curFL.toFixed(1)+'°C feels like';if(st.wLoc)txt+='\nLocation: '+st.wLoc;el.innerHTML=txt.replace('\n','<br>');}else{el.textContent='';}}
   if(st.full){var sel=document.getElementById('locSelect');if(st.wLat){var key=st.wLat.toFixed(2)+','+st.wLon.toFixed(2);sel.value=key;if(!sel.value||sel.value==='auto'){sel.value='other';document.getElementById('locManual').style.display='flex';document.getElementById('locLat').value=st.wLat;document.getElementById('locLon').value=st.wLon;}document.getElementById('locStatus').textContent='Location set'+(st.wLoc?' ('+st.wLoc+')':'');}else{sel.value='auto';}}
@@ -1041,7 +1048,7 @@ function updateUI(){var _sy=window.pageYOffset;
   if(st.ssid)document.getElementById('wifiSSID').textContent=st.ssid;
   if(st.ip)document.getElementById('wifiIP').textContent=st.ip;
   var hasPeers=st.peers&&st.peers>0;
-  if(hasPeers!==prev.hasPeers){prev.hasPeers=hasPeers;['swBcastBtn','pomBcastBtn','syncCfgBtn'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display=hasPeers?'':'none';});var np=document.getElementById('syncNoPeers');if(np)np.style.display=hasPeers?'none':'';}
+  if(hasPeers!==prev.hasPeers){prev.hasPeers=hasPeers;['swBcastBtn','syncCfgBtn'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display=hasPeers?'':'none';});var np=document.getElementById('syncNoPeers');if(np)np.style.display=hasPeers?'none':'';}
   if(st.bcasting&&!prev.bcasting){prev.bcasting=true;document.getElementById('timeDisp').insertAdjacentHTML('afterend','<div id="bcastBadge" style="text-align:center;font-size:11px;color:#6e7dff;font-weight:700;margin-top:4px">BROADCASTING TO ALL</div>');}
   if(!st.bcasting&&prev.bcasting){prev.bcasting=false;var bb=document.getElementById('bcastBadge');if(bb)bb.remove();}
   if(window.pageYOffset!==_sy)window.scrollTo(0,_sy);
@@ -1129,8 +1136,35 @@ function resetDSTIsrael(){sendSave({cmd:'dst_reset_israel'});}
 function resetWifi(){if(confirm('Reset WiFi? Watch will restart.'))send({cmd:'resetwifi'});}
 function applyCustomColor(){const h=document.getElementById('customColor').value;send({cmd:'customcolor',r:parseInt(h.substr(1,2),16),g:parseInt(h.substr(3,2),16),b:parseInt(h.substr(5,2),16)});}
 function saveNightShift(){sendSave({cmd:'nightshift',enabled:document.getElementById('nsToggle').checked,start:+document.getElementById('nsStart').value,end:+document.getElementById('nsEnd').value,bright:+document.getElementById('nsBright').value});}
-function pomToggle(bc){if(st.pomRun)send({cmd:'pom',action:'stop'});else send({cmd:'pom',action:'start',broadcast:!!bc});}
-function savePomInt(){send({cmd:'pom_cfg',intervals:+document.getElementById('pomIntSlider').value});}
+// ---- Pomodoro (recipe-style UI) ----
+var PB={work:1500,brk:300,rounds:4},pbSynced=false,pbEditing=false;
+var PBCH={work:[1200,1500,1800,3000],brk:[300,600,900],rounds:[2,3,4,6]};
+var PBPEN=' <span class="edih">&#9998;</span>';
+function pbFmt(s){return P(Math.floor(s/60))+':'+P(s%60);}
+function pbHrs(s){var h=Math.floor(s/3600),m=Math.round((s%3600)/60);return h>0?(h+'h '+(m<10?'0':'')+m+'m'):(m+'m');}
+function pbTotal(){return (PB.work+PB.brk)*PB.rounds;}
+function pbClamp(k,v){if(isNaN(v))return PB[k];if(k==='rounds')return Math.max(1,Math.min(12,Math.round(v)));if(k==='brk')return Math.max(0,Math.min(3599,Math.round(v)));return Math.max(60,Math.min(3599,Math.round(v)));}
+function pbChips(){[['work','pbworkChips'],['brk','pbbrkChips'],['rounds','pbroundsChips']].forEach(function(x){var el=document.getElementById(x[1]);if(!el)return;el.innerHTML=PBCH[x[0]].map(function(v){var lbl=(x[0]==='rounds')?v:(v/60)+'m';return '<button class="chip'+(PB[x[0]]===v?' sel':'')+'" onclick="pbSet(\''+x[0]+'\','+v+')">'+lbl+'</button>';}).join('');});}
+function pbVals(){if(pbEditing)return;document.getElementById('pbWorkVal').innerHTML=pbFmt(PB.work)+PBPEN;document.getElementById('pbBrkVal').innerHTML=pbFmt(PB.brk)+PBPEN;document.getElementById('pbRoundsVal').innerHTML=PB.rounds+PBPEN;}
+function pbSummary(){document.getElementById('pomWsum').textContent=(PB.work/60)+'m Focus · '+(PB.brk/60)+'m Break';document.getElementById('pomWtotal').textContent=PB.rounds+' Rounds · Total '+pbHrs(pbTotal());}
+function pbSetupRender(){pbChips();pbVals();pbSummary();}
+function pbPreviewIdle(){document.getElementById('pomPhase').className='phase ready';document.getElementById('pomPhase').textContent='READY';document.getElementById('pomHtime').className='htime ready';document.getElementById('pomHtime').textContent=pbFmt(PB.work);document.getElementById('pomRinfo').textContent='Round 1 of '+PB.rounds;document.getElementById('pomRnext').textContent='Next: Break '+pbFmt(PB.brk);}
+function pbSet(k,v){PB[k]=pbClamp(k,v);pbSetupRender();if(!st.pomRun)pbPreviewIdle();}
+function pbBump(k,d){pbSet(k,PB[k]+d);}
+function pbParse(k,str){str=(''+str).trim();if(k==='rounds')return pbClamp('rounds',parseInt(str,10));if(str.indexOf(':')>=0){var p=str.split(':');return pbClamp(k,(parseInt(p[0],10)||0)*60+(parseInt(p[1],10)||0));}return pbClamp(k,(parseInt(str,10)||0)*60);}
+function pbEdit(k){if(st.pomRun)return;var map={work:'pbWorkVal',brk:'pbBrkVal',rounds:'pbRoundsVal'};var el=document.getElementById(map[k]);if(el.querySelector('input'))return;pbEditing=true;var cur=(k==='rounds')?PB.rounds:pbFmt(PB[k]);el.innerHTML='';var inp=document.createElement('input');inp.className='editbox';inp.value=cur;inp.setAttribute('inputmode',k==='rounds'?'numeric':'text');el.appendChild(inp);inp.focus();inp.select();var done=false;function commit(){if(done)return;done=true;pbEditing=false;pbSet(k,pbParse(k,inp.value));}inp.addEventListener('blur',commit);inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();commit();}else if(e.key==='Escape'){done=true;pbEditing=false;pbVals();}});}
+function pbApplyCfg(){send({cmd:'pom_cfg',work:PB.work,brk:PB.brk,intervals:PB.rounds});}
+function pomPrimary(){if(!st.pomRun){pbApplyCfg();send({cmd:'pom',action:'start',broadcast:st.peers>0});return;}if(st.bcasting||!(st.peers>0))send({cmd:'pom',action:'stop'});else send({cmd:'pom',action:'castnow'});}
+function pomSecondary(){if(!st.pomRun){pbApplyCfg();send({cmd:'pom',action:'start'});}else send({cmd:'pom',action:'stop'});}
+function pomRenderLive(){
+  castButtons(document.getElementById('pomStart'),document.getElementById('pomSec'),st.pomRun,st.bcasting,'Start');
+  var ph=document.getElementById('pomPhase'),ht=document.getElementById('pomHtime');
+  if(st.pomDone){ph.className='phase done';ph.textContent='DONE!';ht.className='htime ready';ht.textContent='00:00';document.getElementById('pomRinfo').textContent='Round '+st.pomInt+' of '+(st.pomTotal||PB.rounds);document.getElementById('pomRnext').textContent='';}
+  else if(st.pomRun){var s=Math.ceil(Math.max(0,st.pomMs)/1000),w=st.pomWork;ph.className='phase '+(w?'work':'brk');ph.textContent=w?'FOCUS':'BREAK';ht.className='htime '+(w?'work':'brk');ht.textContent=pbFmt(s);document.getElementById('pomRinfo').textContent='Round '+st.pomInt+' of '+(st.pomTotal||PB.rounds);document.getElementById('pomRnext').textContent='Next: '+(w?('Break '+pbFmt(PB.brk)):('Focus '+pbFmt(PB.work)));}
+  else{pbPreviewIdle();}
+  document.getElementById('pomSetup').style.display=st.pomRun?'none':'';
+  document.getElementById('pomResetBtn').style.display=(!st.pomRun&&(st.pomMs>0||st.pomDone))?'':'none';
+}
 const CITIES=[['Jerusalem',31.77,35.22],['Tel Aviv',32.08,34.78],['Haifa',32.79,34.99],['Beer Sheva',31.25,34.79],['Rishon LeZion',31.96,34.80],['Petah Tikva',32.09,34.89],['Ashdod',31.80,34.65],['Netanya',32.33,34.86],['Holon',32.02,34.78],['Bnei Brak',32.09,34.83],['Ramat Gan',32.07,34.82],['Rehovot',31.90,34.81],['Ashkelon',31.67,34.57],['Bat Yam',32.02,34.75],['Herzliya',32.16,34.84],['Kfar Saba',32.18,34.91],['Hadera',32.44,34.92],['Modiin',31.90,35.01],['Nazareth',32.70,35.30],['Eilat',29.56,34.95],['Raanana',32.18,34.87],['Tiberias',32.79,35.53],['Acre',32.93,35.07],['Nahariya',33.01,35.10],['Kiryat Gat',31.61,34.76],['Afula',32.61,35.29],['Carmiel',32.91,35.30],['Arad',31.26,35.21]];
 function initCities(){var s=document.getElementById('locSelect');var other=s.lastChild;CITIES.sort(function(a,b){return a[0].localeCompare(b[0]);}).forEach(function(c){var o=document.createElement('option');o.value=c[1].toFixed(2)+','+c[2].toFixed(2);o.textContent=c[0];s.insertBefore(o,other);});}
 function setLoc(){var s=document.getElementById('locSelect'),v=s.value;document.getElementById('locManual').style.display=v==='other'?'flex':'none';if(v==='auto'){sendSave({cmd:'setloc',lat:0,lon:0,city:''});document.getElementById('locStatus').textContent='Using auto-detect';}else if(v!=='other'){var p=v.split(','),name=s.options[s.selectedIndex].textContent;sendSave({cmd:'setloc',lat:parseFloat(p[0]),lon:parseFloat(p[1]),city:name});document.getElementById('locStatus').textContent='Set: '+name;}}
@@ -1210,7 +1244,7 @@ void WebUI::pomodoroStart() {
     if (!m_pomRunning) {
         m_pomRunning = true; m_pomWorkPhase = true;
         if (m_pomCurrentInterval < 1) m_pomCurrentInterval = 1;
-        m_pomPhaseDuration = (unsigned long)POMODORO_WORK_SEC * 1000;
+        m_pomPhaseDuration = (unsigned long)m_settings->pomWorkSec * 1000;
         m_pomPhaseStart = millis();
     }
 }
@@ -1219,7 +1253,7 @@ void WebUI::pomodoroStop() {
 }
 void WebUI::pomodoroReset() {
     m_pomRunning = false; m_pomDone = false; m_pomWorkPhase = true; m_pomCurrentInterval = 1;
-    m_pomPhaseDuration = (unsigned long)POMODORO_WORK_SEC * 1000; m_pomPhaseStart = 0;
+    m_pomPhaseDuration = (unsigned long)m_settings->pomWorkSec * 1000; m_pomPhaseStart = 0;
 }
 long WebUI::getPomodoroPhaseRemaining() const {
     if (!m_pomRunning) return (long)m_pomPhaseDuration;
@@ -1229,11 +1263,11 @@ long WebUI::getPomodoroPhaseRemaining() const {
 void WebUI::pomodoroAdvance() {
     if (!m_pomRunning || getPomodoroPhaseRemaining() > 0) return;
     if (m_pomWorkPhase) {
-        m_pomWorkPhase = false; m_pomPhaseDuration = (unsigned long)POMODORO_BREAK_SEC * 1000; m_pomPhaseStart = millis();
+        m_pomWorkPhase = false; m_pomPhaseDuration = (unsigned long)m_settings->pomBreakSec * 1000; m_pomPhaseStart = millis();
     } else {
         m_pomCurrentInterval++;
         if (m_pomCurrentInterval > m_settings->pomodoroIntervals) { m_pomRunning = false; m_pomDone = true; m_pomPhaseDuration = 0; }
-        else { m_pomWorkPhase = true; m_pomPhaseDuration = (unsigned long)POMODORO_WORK_SEC * 1000; m_pomPhaseStart = millis(); }
+        else { m_pomWorkPhase = true; m_pomPhaseDuration = (unsigned long)m_settings->pomWorkSec * 1000; m_pomPhaseStart = millis(); }
     }
 }
 
@@ -1292,8 +1326,8 @@ void WebUI::handleWebSocketMessage(AsyncWebSocketClient* client, uint8_t* data, 
     else if (cmd == "colormode") { int v = extractInt(msg, "value"); if (v >= 0 && v <= 3) { m_settings->colorMode = v; m_pendingSave = millis(); } }
     else if (cmd == "animtoggle") { m_settings->animateTransitions = extractBool(msg, "value"); m_pendingSave = millis(); }
     else if (cmd == "nightshift") { m_settings->nightShiftEnabled = extractBool(msg, "enabled"); int sh = extractInt(msg, "start"), eh = extractInt(msg, "end"), nb = extractInt(msg, "bright"); if (sh >= 0 && sh <= 23) m_settings->nightShiftStartHour = sh; if (eh >= 0 && eh <= 23) m_settings->nightShiftEndHour = eh; if (nb >= 0 && nb <= MAX_BRIGHTNESS) m_settings->nightShiftBrightness = nb; m_pendingSave = millis(); }
-    else if (cmd == "pom") { String a = extractString(msg, "action"); if (a == "start") { pomodoroStart(); if (extractBool(msg, "broadcast") && m_heartbeat) m_heartbeat->startBroadcast(MODE_POMODORO, true, getPomodoroPhaseRemaining(), true, 1, m_settings->pomodoroIntervals, false); } else if (a == "stop") { pomodoroStop(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } else if (a == "reset") { pomodoroReset(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } }
-    else if (cmd == "pom_cfg") { int n = extractInt(msg, "intervals"); if (n > 0 && n <= 8) { m_settings->pomodoroIntervals = n; m_pendingSave = millis(); } }
+    else if (cmd == "pom") { String a = extractString(msg, "action"); if (a == "start") { pomodoroStart(); if (extractBool(msg, "broadcast") && m_heartbeat) m_heartbeat->startBroadcast(MODE_POMODORO, true, getPomodoroPhaseRemaining(), true, 1, m_settings->pomodoroIntervals, false); } else if (a == "castnow") { if (m_heartbeat && m_pomRunning) m_heartbeat->startBroadcast(MODE_POMODORO, true, getPomodoroPhaseRemaining(), m_pomWorkPhase, m_pomCurrentInterval, m_settings->pomodoroIntervals, false); } else if (a == "stop") { pomodoroStop(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } else if (a == "reset") { pomodoroReset(); if (m_heartbeat) m_heartbeat->stopBroadcast(); } }
+    else if (cmd == "pom_cfg") { int n = extractInt(msg, "intervals"), w = extractInt(msg, "work"), b = extractInt(msg, "brk"); if (n > 0 && n <= 12) m_settings->pomodoroIntervals = n; if (w > 0) m_settings->pomWorkSec = w; if (b >= 0) m_settings->pomBreakSec = b; m_pendingSave = millis(); pomodoroReset(); }
     else if (cmd == "datedisp") { m_settings->showDateEnabled = extractBool(msg, "enabled"); m_settings->showTempEnabled = extractBool(msg, "tempEn"); m_settings->tempFeelsLike = extractBool(msg, "feelsLike"); m_settings->tempColorByValue = extractBool(msg, "tempClr"); int iv = extractInt(msg, "interval"); if (iv > 0) m_settings->showDateIntervalSec = iv; m_pendingSave = millis(); }
     else if (cmd == "setloc") { m_settings->weatherLat = extractFloat(msg, "lat"); m_settings->weatherLon = extractFloat(msg, "lon"); String cn = extractString(msg, "city"); extern char weatherCity[32]; if (cn.length()) { strncpy(weatherCity, cn.c_str(), 31); weatherCity[31] = 0; } else if (m_settings->weatherLat == 0) { weatherCity[0] = 0; } m_pendingSave = millis(); extern volatile bool weatherFetchNow; weatherFetchNow = true; }
     else if (cmd == "buzzer") { int lv = extractInt(msg, "level"); if (lv >= 0 && lv <= 2) { m_settings->buzzerLevel = lv; m_pendingSave = millis(); } }
@@ -1391,6 +1425,8 @@ String WebUI::buildStateJSON() {
     j += ",\"nsEnd\":"; j += m_settings->nightShiftEndHour;
     j += ",\"nsBright\":"; j += m_settings->nightShiftBrightness;
     j += ",\"pomTotal\":"; j += m_settings->pomodoroIntervals;
+    j += ",\"pomWSec\":"; j += m_settings->pomWorkSec;
+    j += ",\"pomBSec\":"; j += m_settings->pomBreakSec;
     j += ",\"dateEn\":"; j += m_settings->showDateEnabled ? "true" : "false";
     j += ",\"dateInt\":"; j += m_settings->showDateIntervalSec;
     j += ",\"tempEn\":"; j += m_settings->showTempEnabled ? "true" : "false";
@@ -1473,6 +1509,8 @@ String WebUI::buildConfigJSON() {
     j += ",\"nsEnd\":";    j += s.nightShiftEndHour;
     j += ",\"nsBright\":"; j += s.nightShiftBrightness;
     j += ",\"pomTotal\":"; j += s.pomodoroIntervals;
+    j += ",\"pomWSec\":";  j += s.pomWorkSec;
+    j += ",\"pomBSec\":";  j += s.pomBreakSec;
     j += ",\"dateEn\":";   j += s.showDateEnabled ? "true" : "false";
     j += ",\"dateInt\":";  j += s.showDateIntervalSec;
     j += ",\"tempEn\":";   j += s.showTempEnabled ? "true" : "false";
@@ -1537,6 +1575,8 @@ void WebUI::applyConfigJSON(const String& body) {
     s.nightShiftEndHour   = doc["nsEnd"]     | s.nightShiftEndHour;
     s.nightShiftBrightness= doc["nsBright"]  | s.nightShiftBrightness;
     s.pomodoroIntervals   = doc["pomTotal"]  | s.pomodoroIntervals;
+    s.pomWorkSec          = doc["pomWSec"]   | s.pomWorkSec;
+    s.pomBreakSec         = doc["pomBSec"]  | s.pomBreakSec;
     s.showDateEnabled     = doc["dateEn"]    | s.showDateEnabled;
     s.showDateIntervalSec = doc["dateInt"]   | s.showDateIntervalSec;
     s.showTempEnabled     = doc["tempEn"]    | s.showTempEnabled;
